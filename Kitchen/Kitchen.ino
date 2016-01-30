@@ -4,10 +4,11 @@
 #include <errno.h>
 
 #include <MySensor.h>
+#include <EEPROM.h>
 #include <Button.h>
 #include <SimpleTimer.h>
 #include <LEDFader.h>
-#include <EEPROM.h>
+#include <Logging.h>
 
 #define PIN_IN_RED  3
 #define PIN_IN_GREEN  5
@@ -57,20 +58,6 @@ MySensor gw(transport);
 MyMessage msgLedStatus(MS_SENSOR_LEDS_ID, S_LIGHT);
 
 SimpleTimer hearbeat_timer;
-
-void log(const __FlashStringHelper *fmt, ... ){
-    static char buf[128];
-    va_list args;
-    va_start (args, fmt);
-    vsnprintf_P(buf, sizeof(buf), (const char *)fmt, args); // progmem for AVR
-    va_end(args);
-    Serial.println(buf);
-    Serial.flush();
-}
-
-#define LOG_DEBUG(_msg, ...) log(F("[DEBUG] " _msg) , ##__VA_ARGS__);
-#define LOG_INFO(_msg, ...) log(F("[INFO] " _msg) , ##__VA_ARGS__);
-#define LOG_ERROR(_msg, ...) log(F("[ERROR] " _msg) , ##__VA_ARGS__);
 
 void setup()
 {
