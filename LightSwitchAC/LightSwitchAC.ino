@@ -1,7 +1,7 @@
 #include <Arduino.h>
 
-#include <stdlib.h>
-#include <errno.h>
+//#include <stdlib.h>
+//#include <errno.h>
 
 #include <MySensor.h>
 #include <EEPROM.h>
@@ -30,9 +30,13 @@
 
 bool button_direction = false;
 bool button_long_press = false;
-byte target_light_level = 255;
 
-volatile byte actual_light_level = target_light_level;
+struct {
+    volatile byte actual;
+    byte max;
+    byte target;
+} dimmer = {255, 255, 255};
+
 volatile int step_counter = 0;                // Variable to use as a counter of dimming steps. It is volatile since it is passed between interrupts
 volatile bool zero_cross = false;  // Flag to indicate we have crossed zero
 
@@ -82,34 +86,66 @@ void loop()
     gw.process();
 
     if (button_long_press) {
-        step_target_level(button_direction);
+        step_level(button_direction);
     }
-    set_actual_level();
+    fade();
 }
 
 void on_message(const MyMessage & message)
 {
+    // TODO
     LOG_ERROR("Got message from unexpected sensor: (sensor=%d, type=%d)", message.sensor, message.type);
 }
 
 void on_btn_short_press()
 {
-    LOG_DEBUG("Button: short press");
+    // TODO make fade faster?
+
+    if (dimmer.actual == 0) {
+        LOG_DEBUG("Button: short press. Switch on to %d", dimmer.max);
+        dimmer.actual = dimmer.max;
+        dimmer.target = dimmer.max;
+    }
+    else {
+        LOG_DEBUG("Button: short press. Switch off");
+        dimmer.actual = 0;
+        dimmer.target = 0;
+    }
 }
 
 void on_btn_long_press()
 {
-    LOG_DEBUG("Button: long press");
-
     button_long_press = true;
+
+    if (dimmer.actual == 0) {
+        button_direction = true;
+    }
+    else if (dimmer.actual == 255) {
+        button_direction = false;
+    }
+    else {
+        button_direction = !button_direction;
+    }
+
+    if (button_direction) {
+        dimmer.target = 255;
+    }
+    else {
+        dimmer.target = 0;
+    }
+
+    LOG_DEBUG("Button: long press. Going %s from %d", button_direction ? "up" : "down", dimmer.actual);
 }
 
 void on_btn_long_release()
 {
-    LOG_DEBUG("Button: long release");
+    LOG_DEBUG("Button: long release. Stopped at %d", dimmer.actual);
 
     button_long_press = false;
-    button_direction = !button_direction;
+
+    dimmer.target = dimmer.actual;
+    dimmer.max = dimmer.actual;
+
     eeprom_save();
 }
 
@@ -122,8 +158,8 @@ void on_zero_cross_detect()
 
 void on_timer_dim_check()
 {
-    if (zero_cross) {
-        if (step_counter >= actual_light_level) {
+    if (zero_cross && dimmer.actual > 0) {
+        if (step_counter >= dimmer.actual) {
             digitalWrite(PIN_OUT_AC, HIGH);  // turn on light
             step_counter = 0;  // reset time step counter
             zero_cross = false;    // reset zero cross detection flag
@@ -136,49 +172,53 @@ void on_timer_dim_check()
 
 void eeprom_restore()
 {
-    EEPROM.get(0, target_light_level);
-    actual_light_level = target_light_level;
+    EEPROM.get(0, dimmer.max);
+    dimmer.actual = dimmer.max;
+    dimmer.target = dimmer.max;
 }
 
 void eeprom_save()
 {
-    EEPROM.put(0, target_light_level);
+    EEPROM.put(0, dimmer.max);
 }
 
-void set_target_level(byte level)
+void set_level(byte level)
 {
-    LOG_INFO("Fading %u => %d", actual_light_level, target_light_level);
+    LOG_INFO("Fading %u => %d", dimmer.actual, dimmer.target);
 
-    target_light_level = level;
+    dimmer.target = level;
+    dimmer.max = level;
 }
 
-void step_target_level(bool up)
+void step_level(bool up)
 {
-    if ((up && target_light_level == 255) ||
-        (!up && target_light_level == 0)) {
+    if ((up && dimmer.target == 255) ||
+        (!up && dimmer.target == 0)) {
 
         return;
     }
 
-    target_light_level += up ? 1 : -1;
+    dimmer.target += up ? 1 : -1;
+    dimmer.max = dimmer.target;
     delay(FADE_DELAY_MS);
 }
 
-void set_actual_level()
+// Going from actual to target level with delay
+void fade()
 {
     static unsigned long last_now = millis();
 
-    if (actual_light_level == target_light_level) {
+    if (dimmer.actual == dimmer.target) {
         return;
     }
 
     unsigned long now = millis();
     if (now - last_now > FADE_DELAY_MS) {
-        bool direction = target_light_level < actual_light_level;
+        bool direction = dimmer.target < dimmer.actual;
 
-        actual_light_level = direction ? +1 : -1;
+        dimmer.actual = direction ? +1 : -1;
         last_now = now;
 
-        LOG_DEBUG(">> step: %u/%u", actual_light_level, target_light_level);
+        LOG_DEBUG("step: %u/%u", dimmer.actual, dimmer.target);
     }
 }
