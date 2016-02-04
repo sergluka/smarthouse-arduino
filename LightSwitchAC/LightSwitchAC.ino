@@ -1,8 +1,5 @@
 #include <Arduino.h>
 
-//#include <stdlib.h>
-//#include <errno.h>
-
 #include <MySensor.h>
 #include <EEPROM.h>
 #include <Button.h>
@@ -26,7 +23,10 @@
 // If using 60 Hz grid frequency set this to 65
 #define FREQ_STEP               75
 
-#define FADE_DELAY_MS           50
+// Delay for transition at button long press
+#define FADE_DELAY_SLOW_MS           100
+// Delay for transition between on and off
+#define FADE_DELAY_FAST_MS           20
 
 bool button_direction = false;
 bool button_long_press = false;
@@ -35,7 +35,8 @@ struct {
     volatile byte actual;
     byte max;
     byte target;
-} dimmer = {255, 255, 255};
+    unsigned int delay;
+} dimmer = {255, 255, 255, FADE_DELAY_SLOW_MS};
 
 volatile int step_counter = 0;                // Variable to use as a counter of dimming steps. It is volatile since it is passed between interrupts
 volatile bool zero_cross = false;  // Flag to indicate we have crossed zero
@@ -91,26 +92,21 @@ void loop()
     fade();
 }
 
-void on_message(const MyMessage & message)
-{
-    // TODO
-    LOG_ERROR("Got message from unexpected sensor: (sensor=%d, type=%d)", message.sensor, message.type);
-}
-
 void on_btn_short_press()
 {
-    // TODO make fade faster?
-
     if (dimmer.actual == 0) {
         LOG_DEBUG("Button: short press. Switch on to %d", dimmer.max);
         dimmer.actual = dimmer.max;
         dimmer.target = dimmer.max;
+        send(msgLedStatus.set(0));
     }
     else {
         LOG_DEBUG("Button: short press. Switch off");
         dimmer.actual = 0;
         dimmer.target = 0;
+        send(msgLedStatus.set(1));
     }
+    dimmer.delay = FADE_DELAY_FAST_MS;
 }
 
 void on_btn_long_press()
@@ -133,6 +129,7 @@ void on_btn_long_press()
     else {
         dimmer.target = 0;
     }
+    dimmer.delay = FADE_DELAY_SLOW_MS;
 
     LOG_DEBUG("Button: long press. Going %s from %d", button_direction ? "up" : "down", dimmer.actual);
 }
@@ -173,21 +170,13 @@ void on_timer_dim_check()
 void eeprom_restore()
 {
     EEPROM.get(0, dimmer.max);
-    dimmer.actual = dimmer.max;
-    dimmer.target = dimmer.max;
+    dimmer.actual = 0;
+    dimmer.target = 0;
 }
 
 void eeprom_save()
 {
     EEPROM.put(0, dimmer.max);
-}
-
-void set_level(byte level)
-{
-    LOG_INFO("Fading %u => %d", dimmer.actual, dimmer.target);
-
-    dimmer.target = level;
-    dimmer.max = level;
 }
 
 void step_level(bool up)
@@ -200,7 +189,7 @@ void step_level(bool up)
 
     dimmer.target += up ? 1 : -1;
     dimmer.max = dimmer.target;
-    delay(FADE_DELAY_MS);
+    delay(dimmer.delay);
 }
 
 // Going from actual to target level with delay
@@ -213,7 +202,7 @@ void fade()
     }
 
     unsigned long now = millis();
-    if (now - last_now > FADE_DELAY_MS) {
+    if (now - last_now > dimmer.delay) {
         bool direction = dimmer.target < dimmer.actual;
 
         dimmer.actual = direction ? +1 : -1;
@@ -221,4 +210,52 @@ void fade()
 
         LOG_DEBUG("step: %u/%u", dimmer.actual, dimmer.target);
     }
+}
+
+void send(MyMessage & message)
+{
+    if (!gw.send(message)) {
+        LOG_ERROR("Message (sensor=%d, type=%d) doesn't reach a next node", message.sensor, message.type);
+    }
+}
+
+void on_message(const MyMessage & message)
+{
+    if (message.sensor != MS_NODE_ID) {
+        LOG_ERROR("Got message from unexpected sensor: (sensor=%d, type=%d)", message.sensor, message.type);
+        return;
+    }
+
+    if (message.type == V_DIMMER) {
+        on_message_set_dimmer(message);
+    }
+    else if (message.type == V_STATUS) {
+        on_message_set_status(message);
+    }
+    else {
+        LOG_ERROR("Got message with unexpected type: (sensor=%d, type=%d)", message.sensor, message.type);
+    }
+}
+
+void on_message_set_dimmer(const MyMessage & message)
+{
+    int dimmer_level = constrain(message.getInt(), 0, 100);
+    LOG_DEBUG("=> Message: sensor=%d, type=%d, value=%s", message.sensor, message.type, dimmer_level);
+
+    dimmer.max = dimmer_level;
+    dimmer.target = dimmer_level;
+}
+
+void on_message_set_status(const MyMessage & message)
+{
+    bool status = message.getBool();
+    LOG_DEBUG("=> Message: sensor=%d, type=%d, value=%d", message.sensor, message.type, status);
+
+    if (status) {
+        dimmer.target = dimmer.max;
+    }
+    else {
+        dimmer.target = 0;
+    }
+    dimmer.delay = FADE_DELAY_FAST_MS;
 }
