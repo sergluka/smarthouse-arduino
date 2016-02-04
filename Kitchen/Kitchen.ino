@@ -17,7 +17,7 @@
 #define PIN_IN_WHITE  9
 
 #define MS_RF24_CE_PIN      4       //<-- NOTE!!! changed, the default is 9                                                                                                                                     ░
-#define MS_RF24_CS_PIN      10      // default is 10                                                                                                                                                            ░
+#define MS_RF24_CS_PIN      10
 #define MS_RF24_PA_LEVEL    RF24_PA_MAX
 
 #define FADE_TIME_MS    3000
