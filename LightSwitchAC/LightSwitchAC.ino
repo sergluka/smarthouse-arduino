@@ -2,7 +2,6 @@
 
 #include <MySensor.h>
 #include <EEPROM.h>
-#include <Button.h>
 #include <TimerOne.h>
 #include <Logging.h>
 
@@ -17,7 +16,7 @@
 #define SERIAL_SPEED            115200U
 
 #define MS_NODE_ID              20
-#define MS_SWITCH_ID            0
+#define MS_LAMP_ID              0
 
 // This is the delay-per-brightness step in microseconds. It allows for 128 steps
 // If using 60 Hz grid frequency set this to 65
@@ -28,6 +27,10 @@
 // Delay for transition between on and off
 #define FADE_DELAY_FAST_MS           20
 
+#define BUTTON_SHORT_PRESS_TIME 100
+#define BUTTON_LONG_PRESS_TIME 2000
+
+unsigned long button_pressed_time = 0;
 bool button_direction = false;
 bool button_long_press = false;
 
@@ -41,14 +44,16 @@ struct {
 volatile int step_counter = 0;                // Variable to use as a counter of dimming steps. It is volatile since it is passed between interrupts
 volatile bool zero_cross = false;  // Flag to indicate we have crossed zero
 
-Button button(PIN_IN_BUTTON);
-
 MyTransportNRF24 transport(MS_RF24_CE_PIN, MS_RF24_CS_PIN, MS_RF24_PA_LEVEL);
 MySensor gw(transport);
-MyMessage msgLedStatus(MS_SWITCH_ID, S_LIGHT);
+MyMessage msgLedStatus(MS_LAMP_ID, S_LIGHT);
 
-void on_btn_short_press();
-void on_btn_long_press();
+enum class ButtonPressStatus
+{
+    NONE,
+    SHORT,
+    LONG,
+};
 
 void setup()
 {
@@ -58,16 +63,12 @@ void setup()
     LOG_DEBUG("EEPROM restore...");
     eeprom_restore();
 
-    LOG_INFO("Button setup...");
-    button.init();
-    button.set_minimum_gap(20);
-    button.set_maximum_gap(1000);
-    button.on_press(on_btn_short_press);
-    button.on_long_press(on_btn_long_press);
-    button.on_long_release(on_btn_long_release);
+    LOG_INFO("Pins setup...");
+
+    pinMode(PIN_IN_BUTTON, INPUT);
+    pinMode(PIN_OUT_AC, OUTPUT);                          // Set the Triac pin as output
 
     LOG_INFO("Interrupts setup...");
-    pinMode(PIN_OUT_AC, OUTPUT);                          // Set the Triac pin as output
     attachInterrupt(digitalPinToInterrupt(PIN_IN_ZERO_CROSS), on_zero_cross_detect, RISING);
     Timer1.initialize(FREQ_STEP);                      // Initialize TimerOne library for the freq we need
     Timer1.attachInterrupt(on_timer_dim_check, FREQ_STEP);      // Go to dim_check procedure every 75 uS (50Hz)  or 65 uS (60Hz)
@@ -75,53 +76,80 @@ void setup()
     LOG_INFO("MySensors setup...");
     gw.begin(on_message, MS_NODE_ID);
     gw.sendSketchInfo("LightSwitchAC", "0.1");
-    gw.present(MS_SWITCH_ID, S_RGBW_LIGHT, "LEDs");
+    gw.present(MS_LAMP_ID, S_DIMMER, "Lamp");
 
     LOG_INFO("Setup done");
 }
 
 void loop()
 {
-    button.init();
-
     gw.process();
 
     if (button_long_press) {
-        step_level(button_direction);
+        dimmer_step(button_direction);
     }
-    fade();
+    dimmer_process();
+    button_process();
 }
 
-void on_btn_short_press()
+void button_process()
 {
-    if (dimmer.actual == 0) {
-        LOG_DEBUG("Button: short press. Switch on to %d", dimmer.max);
-        dimmer.actual = dimmer.max;
-        dimmer.target = dimmer.max;
-        send(msgLedStatus.set(0));
+    static bool prev_status = false;
+    static unsigned long pressed_time = 0;
+    static ButtonPressStatus prev_press_status = ButtonPressStatus::NONE;
+    static ButtonPressStatus press_status = ButtonPressStatus::NONE;
+
+    bool status = digitalRead(PIN_IN_BUTTON) == HIGH;
+    // on press
+    if (status && !prev_status) {
+        pressed_time = millis();
     }
-    else {
-        LOG_DEBUG("Button: short press. Switch off");
-        dimmer.actual = 0;
-        dimmer.target = 0;
-        send(msgLedStatus.set(1));
+    // on release
+    else if (!status && prev_status) {
+        on_btn_release(press_status);
+        pressed_time = 0;
+        press_status = ButtonPressStatus::NONE;
     }
-    dimmer.delay = FADE_DELAY_FAST_MS;
+
+    if (pressed_time > 0) {
+        unsigned long hold_time = millis() - pressed_time;
+        if (hold_time >= BUTTON_LONG_PRESS_TIME) {
+            press_status = ButtonPressStatus::LONG;
+        }
+        else if (hold_time >= BUTTON_SHORT_PRESS_TIME) {
+            press_status = ButtonPressStatus::SHORT;
+        }
+    }
+
+    if (prev_press_status != press_status) {
+        on_btn_press(press_status);
+    }
+
+    prev_status = status;
+    prev_press_status = press_status;
+
 }
 
-void on_btn_long_press()
+bool calc_button_direction()
 {
-    button_long_press = true;
-
     if (dimmer.actual == 0) {
-        button_direction = true;
+        return true;
     }
     else if (dimmer.actual == 255) {
-        button_direction = false;
+        return false;
     }
     else {
-        button_direction = !button_direction;
+        return !button_direction;
     }
+}
+
+void on_btn_press(ButtonPressStatus status)
+{
+    if (status != ButtonPressStatus::LONG) {
+        return;
+    }
+
+    button_direction = calc_button_direction();
 
     if (button_direction) {
         dimmer.target = 255;
@@ -130,20 +158,22 @@ void on_btn_long_press()
         dimmer.target = 0;
     }
     dimmer.delay = FADE_DELAY_SLOW_MS;
-
-    LOG_DEBUG("Button: long press. Going %s from %d", button_direction ? "up" : "down", dimmer.actual);
 }
 
-void on_btn_long_release()
+void on_btn_release(ButtonPressStatus status)
 {
-    LOG_DEBUG("Button: long release. Stopped at %d", dimmer.actual);
+    if (status == ButtonPressStatus::SHORT) {
+        LOG_DEBUG("Button: short release");
+        dimmer_switch(dimmer.actual == 0, FADE_DELAY_FAST_MS);
+    }
+    else if (status == ButtonPressStatus::LONG) {
+        LOG_DEBUG("Button: long release. Stopped at %d", dimmer.actual);
 
-    button_long_press = false;
+        dimmer.target = dimmer.actual;
+        dimmer.max = dimmer.actual;
 
-    dimmer.target = dimmer.actual;
-    dimmer.max = dimmer.actual;
-
-    eeprom_save();
+        eeprom_save();
+    }
 }
 
 void on_zero_cross_detect()
@@ -179,7 +209,22 @@ void eeprom_save()
     EEPROM.put(0, dimmer.max);
 }
 
-void step_level(bool up)
+void dimmer_switch(bool on_off, unsigned int delay)
+{
+    if (on_off) {
+        LOG_DEBUG("Switch light to %d", dimmer.max);
+        dimmer.target = dimmer.max;
+        send(msgLedStatus.set(1));
+    }
+    else {
+        LOG_DEBUG("Switch light off");
+        dimmer.target = 0;
+        send(msgLedStatus.set(0));
+    }
+    dimmer.delay = delay;
+}
+
+void dimmer_step(bool up)
 {
     if ((up && dimmer.target == 255) ||
         (!up && dimmer.target == 0)) {
@@ -193,19 +238,24 @@ void step_level(bool up)
 }
 
 // Going from actual to target level with delay
-void fade()
+void dimmer_process()
 {
     static unsigned long last_now = millis();
 
-    if (dimmer.actual == dimmer.target) {
+    bool direction = dimmer.target > dimmer.actual;
+    if (direction && (dimmer.actual >= dimmer.target)) {
+        return;
+    }
+    else if (!direction && (dimmer.actual == 0)) {
+        return;
+    }
+    else if (dimmer.actual == dimmer.target) {
         return;
     }
 
     unsigned long now = millis();
     if (now - last_now > dimmer.delay) {
-        bool direction = dimmer.target < dimmer.actual;
-
-        dimmer.actual = direction ? +1 : -1;
+        dimmer.actual += (direction ? +1 : -1);
         last_now = now;
 
         LOG_DEBUG("step: %u/%u", dimmer.actual, dimmer.target);
@@ -221,7 +271,7 @@ void send(MyMessage & message)
 
 void on_message(const MyMessage & message)
 {
-    if (message.sensor != MS_NODE_ID) {
+    if (message.sensor != MS_LAMP_ID) {
         LOG_ERROR("Got message from unexpected sensor: (sensor=%d, type=%d)", message.sensor, message.type);
         return;
     }
@@ -232,6 +282,9 @@ void on_message(const MyMessage & message)
     else if (message.type == V_STATUS) {
         on_message_set_status(message);
     }
+    else if (message.type == V_VAR1) {
+        on_message_dump_data(message);
+    }
     else {
         LOG_ERROR("Got message with unexpected type: (sensor=%d, type=%d)", message.sensor, message.type);
     }
@@ -239,23 +292,30 @@ void on_message(const MyMessage & message)
 
 void on_message_set_dimmer(const MyMessage & message)
 {
-    int dimmer_level = constrain(message.getInt(), 0, 100);
-    LOG_DEBUG("=> Message: sensor=%d, type=%d, value=%s", message.sensor, message.type, dimmer_level);
+    int dimmer_level = constrain(message.getInt(), 0, 255);
+    LOG_DEBUG("=> Message: sensor=%d, type=DIMMER, value=%d", message.sensor, dimmer_level);
 
     dimmer.max = dimmer_level;
     dimmer.target = dimmer_level;
+    eeprom_save();
 }
 
 void on_message_set_status(const MyMessage & message)
 {
     bool status = message.getBool();
-    LOG_DEBUG("=> Message: sensor=%d, type=%d, value=%d", message.sensor, message.type, status);
+    LOG_DEBUG("=> Message: sensor=%d, type=STATUS, value=%d", message.sensor, status);
 
-    if (status) {
-        dimmer.target = dimmer.max;
-    }
-    else {
-        dimmer.target = 0;
-    }
-    dimmer.delay = FADE_DELAY_FAST_MS;
+    dimmer_switch(status, FADE_DELAY_FAST_MS);
+}
+
+void on_message_dump_data(const MyMessage & message)
+{
+    LOG_DEBUG("=> Message: sensor=%d, type=VAR1", message.sensor);
+
+    LOG_DEBUG("Actual: %d", dimmer.actual);
+    LOG_DEBUG("Target: %d", dimmer.target);
+    LOG_DEBUG("Max: %d", dimmer.max);
+    LOG_DEBUG("Delay: %ums", dimmer.delay);
+    LOG_DEBUG("Button direction: %s", button_direction ? "up" : "down");
+    LOG_DEBUG("Button is long press: %d", button_long_press);
 }
