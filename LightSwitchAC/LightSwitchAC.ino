@@ -7,11 +7,7 @@
 
 #define PIN_IN_ZERO_CROSS   2
 #define PIN_OUT_AC          6                 // Output to Opto Triac
-#define PIN_IN_BUTTON       7
-
-#define MS_RF24_CE_PIN          4       //<-- NOTE!!! changed, the default is 9                                                                                                                                     ░
-#define MS_RF24_CS_PIN          10
-#define MS_RF24_PA_LEVEL        RF24_PA_MAX
+#define PIN_IN_BUTTON       5
 
 #define SERIAL_SPEED            115200U
 
@@ -30,7 +26,6 @@
 #define BUTTON_SHORT_PRESS_TIME 100
 #define BUTTON_LONG_PRESS_TIME 2000
 
-unsigned long button_pressed_time = 0;
 bool button_direction = false;
 bool button_long_press = false;
 
@@ -44,7 +39,7 @@ struct {
 volatile int step_counter = 0;                // Variable to use as a counter of dimming steps. It is volatile since it is passed between interrupts
 volatile bool zero_cross = false;  // Flag to indicate we have crossed zero
 
-MyTransportNRF24 transport(MS_RF24_CE_PIN, MS_RF24_CS_PIN, MS_RF24_PA_LEVEL);
+MyTransportNRF24 transport;
 MySensor gw(transport);
 MyMessage msgLedStatus(MS_LAMP_ID, S_LIGHT);
 
