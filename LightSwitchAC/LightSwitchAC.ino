@@ -6,7 +6,7 @@
 #include <Logging.h>
 
 #define PIN_IN_ZERO_CROSS   2
-#define PIN_OUT_AC          6                 // Output to Opto Triac
+#define PIN_OUT_AC          3
 #define PIN_IN_BUTTON       5
 
 #define SERIAL_SPEED            115200U
@@ -19,29 +19,33 @@
 #define FREQ_STEP               75
 
 // Delay for transition at button long press
-#define FADE_DELAY_SLOW_MS           100
+#define FADE_DELAY_SLOW_MS           50
 // Delay for transition between on and off
 #define FADE_DELAY_FAST_MS           20
+
+#define DIMMER_HIGH   120
+#define DIMMER_MAX    100
+#define DIMMER_LOW    0
 
 #define BUTTON_SHORT_PRESS_TIME 100
 #define BUTTON_LONG_PRESS_TIME 2000
 
-bool button_direction = false;
-bool button_long_press = false;
+bool button_direction = true;
 
 struct {
     volatile byte actual;
-    byte max;
+    byte limit;
     byte target;
     unsigned int delay;
-} dimmer = {255, 255, 255, FADE_DELAY_SLOW_MS};
+} dimmer = {DIMMER_MAX, DIMMER_MAX, DIMMER_MAX, FADE_DELAY_SLOW_MS};
 
 volatile int step_counter = 0;                // Variable to use as a counter of dimming steps. It is volatile since it is passed between interrupts
 volatile bool zero_cross = false;  // Flag to indicate we have crossed zero
 
 MyTransportNRF24 transport;
 MySensor gw(transport);
-MyMessage msgLedStatus(MS_LAMP_ID, S_LIGHT);
+MyMessage msgLightStatus(MS_LAMP_ID, S_LIGHT);
+MyMessage msgLightLevel(MS_LAMP_ID, S_LIGHT_LEVEL);
 
 enum class ButtonPressStatus
 {
@@ -80,9 +84,6 @@ void loop()
 {
     gw.process();
 
-    if (button_long_press) {
-        dimmer_step(button_direction);
-    }
     dimmer_process();
     button_process();
 }
@@ -101,9 +102,11 @@ void button_process()
     }
     // on release
     else if (!status && prev_status) {
-        on_btn_release(press_status);
         pressed_time = 0;
-        press_status = ButtonPressStatus::NONE;
+        if (press_status != ButtonPressStatus::NONE) {
+            on_btn_release(press_status);
+            press_status = ButtonPressStatus::NONE;
+        }
     }
 
     if (pressed_time > 0) {
@@ -116,58 +119,56 @@ void button_process()
         }
     }
 
-    if (prev_press_status != press_status) {
+    if (prev_press_status != press_status && press_status != ButtonPressStatus::NONE) {
         on_btn_press(press_status);
+        LOG_INFO("Button press: %s", press_status == ButtonPressStatus::SHORT ? "short" : "long");
     }
 
     prev_status = status;
     prev_press_status = press_status;
-
 }
 
-bool calc_button_direction()
+bool change_button_direction(byte min, byte max)
 {
-    if (dimmer.actual == 0) {
-        return true;
+    bool ret = false;
+
+    if (dimmer.actual >= max) {
+        ret = false;
     }
-    else if (dimmer.actual == 255) {
-        return false;
+    else if (dimmer.actual <= min) {
+        ret = true;
     }
-    else {
-        return !button_direction;
-    }
+
+    ret = !button_direction;
+    LOG_DEBUG("Going %s", ret ? "up" : "down");
+
+    return ret;
 }
 
 void on_btn_press(ButtonPressStatus status)
 {
-    if (status != ButtonPressStatus::LONG) {
-        return;
+    if (status == ButtonPressStatus::LONG) {
+        button_direction = change_button_direction(DIMMER_LOW, DIMMER_MAX);
+        if (button_direction) {
+            dimmer.target = DIMMER_MAX;
+        }
+        else {
+            dimmer.target = DIMMER_LOW;
+        }
+        dimmer.delay = FADE_DELAY_SLOW_MS;
     }
-
-    button_direction = calc_button_direction();
-
-    if (button_direction) {
-        dimmer.target = 255;
-    }
-    else {
-        dimmer.target = 0;
-    }
-    dimmer.delay = FADE_DELAY_SLOW_MS;
 }
 
 void on_btn_release(ButtonPressStatus status)
 {
     if (status == ButtonPressStatus::SHORT) {
         LOG_DEBUG("Button: short release");
-        dimmer_switch(dimmer.actual == 0, FADE_DELAY_FAST_MS);
+        button_direction = change_button_direction(dimmer.limit, DIMMER_HIGH);
+        dimmer_switch(button_direction, FADE_DELAY_FAST_MS);
     }
     else if (status == ButtonPressStatus::LONG) {
         LOG_DEBUG("Button: long release. Stopped at %d", dimmer.actual);
-
-        dimmer.target = dimmer.actual;
-        dimmer.max = dimmer.actual;
-
-        eeprom_save();
+        dimmer_level(dimmer.actual);
     }
 }
 
@@ -180,7 +181,7 @@ void on_zero_cross_detect()
 
 void on_timer_dim_check()
 {
-    if (zero_cross && dimmer.actual > 0) {
+    if (zero_cross) {
         if (step_counter >= dimmer.actual) {
             digitalWrite(PIN_OUT_AC, HIGH);  // turn on light
             step_counter = 0;  // reset time step counter
@@ -194,42 +195,35 @@ void on_timer_dim_check()
 
 void eeprom_restore()
 {
-    EEPROM.get(0, dimmer.max);
-    dimmer.actual = 0;
-    dimmer.target = 0;
+    dimmer.limit = constrain(EEPROM.read(10), DIMMER_LOW, DIMMER_MAX);
+    dimmer.actual = DIMMER_HIGH;
+    dimmer.target = DIMMER_HIGH;
+    LOG_DEBUG("EEPROM restored: limit=%d", dimmer.limit);
 }
 
 void eeprom_save()
 {
-    EEPROM.put(0, dimmer.max);
-}
-
-void dimmer_switch(bool on_off, unsigned int delay)
-{
-    if (on_off) {
-        LOG_DEBUG("Switch light to %d", dimmer.max);
-        dimmer.target = dimmer.max;
-        send(msgLedStatus.set(1));
-    }
-    else {
-        LOG_DEBUG("Switch light off");
-        dimmer.target = 0;
-        send(msgLedStatus.set(0));
-    }
-    dimmer.delay = delay;
-}
-
-void dimmer_step(bool up)
-{
-    if ((up && dimmer.target == 255) ||
-        (!up && dimmer.target == 0)) {
-
+    EEPROM.update(10, dimmer.limit);
+    if (EEPROM.read(10) != dimmer.limit) {
+        LOG_ERROR("EEPROM write failure");
         return;
     }
 
-    dimmer.target += up ? 1 : -1;
-    dimmer.max = dimmer.target;
-    delay(dimmer.delay);
+    LOG_DEBUG("EEPROM saved: limit=%d", dimmer.limit);
+}
+
+void dimmer_switch(bool status, unsigned int delay)
+{
+    if (status) {
+        dimmer.target = DIMMER_HIGH;
+        send(msgLightStatus.set(0));
+    }
+    else {
+        dimmer.target = dimmer.limit;
+        send(msgLightStatus.set(1));
+    }
+    LOG_DEBUG("Switch dimmer to %d", dimmer.target);
+    dimmer.delay = delay;
 }
 
 // Going from actual to target level with delay
@@ -241,7 +235,7 @@ void dimmer_process()
     if (direction && (dimmer.actual >= dimmer.target)) {
         return;
     }
-    else if (!direction && (dimmer.actual == 0)) {
+    else if (!direction && (dimmer.actual == DIMMER_LOW)) {
         return;
     }
     else if (dimmer.actual == dimmer.target) {
@@ -253,7 +247,7 @@ void dimmer_process()
         dimmer.actual += (direction ? +1 : -1);
         last_now = now;
 
-        LOG_DEBUG("step: %u/%u", dimmer.actual, dimmer.target);
+        LOG_DEBUG("dimmer: %u/%u", dimmer.actual, dimmer.target);
     }
 }
 
@@ -271,10 +265,10 @@ void on_message(const MyMessage & message)
         return;
     }
 
-    if (message.type == V_DIMMER) {
-        on_message_set_dimmer(message);
+    if (message.type == V_LIGHT_LEVEL) {
+        on_message_set_light_level(message);
     }
-    else if (message.type == V_STATUS) {
+    else if (message.type == V_LIGHT) {
         on_message_set_status(message);
     }
     else if (message.type == V_VAR1) {
@@ -285,22 +279,33 @@ void on_message(const MyMessage & message)
     }
 }
 
-void on_message_set_dimmer(const MyMessage & message)
+void on_message_set_light_level(const MyMessage & message)
 {
-    int dimmer_level = constrain(message.getInt(), 0, 255);
-    LOG_DEBUG("=> Message: sensor=%d, type=DIMMER, value=%d", message.sensor, dimmer_level);
+    int light_level = constrain(message.getInt(), DIMMER_LOW, DIMMER_MAX);
+    LOG_DEBUG("=> Message: sensor=%d, type=LIGHT_LEVEL, value=%d", message.sensor, light_level);
 
-    dimmer.max = dimmer_level;
-    dimmer.target = dimmer_level;
+    byte level = light_to_dimmer(light_level);
+    dimmer_level(level);
+}
+
+void dimmer_level(byte level)
+{
+    LOG_DEBUG("set limit = %d", level);
+    dimmer.limit = level;
+    dimmer.target = level;
+
     eeprom_save();
+
+    int light_level = dimmer_to_light(level);
+    send(msgLightLevel.set(light_level));
 }
 
 void on_message_set_status(const MyMessage & message)
 {
-    bool status = message.getBool();
-    LOG_DEBUG("=> Message: sensor=%d, type=STATUS, value=%d", message.sensor, status);
+    bool light_status = message.getBool();
+    LOG_DEBUG("=> Message: sensor=%d, type=LIGHT, value=%d", message.sensor, light_status);
 
-    dimmer_switch(status, FADE_DELAY_FAST_MS);
+    dimmer_switch(!light_status, FADE_DELAY_FAST_MS);
 }
 
 void on_message_dump_data(const MyMessage & message)
@@ -309,8 +314,17 @@ void on_message_dump_data(const MyMessage & message)
 
     LOG_DEBUG("Actual: %d", dimmer.actual);
     LOG_DEBUG("Target: %d", dimmer.target);
-    LOG_DEBUG("Max: %d", dimmer.max);
+    LOG_DEBUG("Max: %d", dimmer.limit);
     LOG_DEBUG("Delay: %ums", dimmer.delay);
     LOG_DEBUG("Button direction: %s", button_direction ? "up" : "down");
-    LOG_DEBUG("Button is long press: %d", button_long_press);
+}
+
+byte light_to_dimmer(byte light_level)
+{
+    return DIMMER_HIGH - light_level;
+}
+
+byte dimmer_to_light(byte level)
+{
+    return DIMMER_HIGH - level;
 }
