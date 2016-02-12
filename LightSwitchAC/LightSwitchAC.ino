@@ -30,6 +30,8 @@
 #define BUTTON_SHORT_PRESS_TIME 100
 #define BUTTON_LONG_PRESS_TIME 2000
 
+#define EEPROM_OFFSET 10
+
 bool button_direction = true;
 
 struct {
@@ -44,8 +46,8 @@ volatile bool zero_cross = false;  // Flag to indicate we have crossed zero
 
 MyTransportNRF24 transport;
 MySensor gw(transport);
-MyMessage msgLightStatus(MS_LAMP_ID, S_LIGHT);
-MyMessage msgLightLevel(MS_LAMP_ID, S_LIGHT_LEVEL);
+MyMessage msgLightStatus(MS_LAMP_ID, V_LIGHT);
+MyMessage msgLightLevel(MS_LAMP_ID, V_LIGHT_LEVEL);
 
 enum class ButtonPressStatus
 {
@@ -75,7 +77,7 @@ void setup()
     LOG_INFO("MySensors setup...");
     gw.begin(on_message, MS_NODE_ID);
     gw.sendSketchInfo("LightSwitchAC", "0.1");
-    gw.present(MS_LAMP_ID, S_DIMMER, "Lamp");
+    gw.present(MS_LAMP_ID, S_LIGHT, "Lamp");
 
     LOG_INFO("Setup done");
 }
@@ -195,7 +197,10 @@ void on_timer_dim_check()
 
 void eeprom_restore()
 {
-    dimmer.limit = constrain(EEPROM.read(10), DIMMER_LOW, DIMMER_MAX);
+    dimmer.limit = EEPROM.read(EEPROM_OFFSET);
+    if (dimmer.limit > DIMMER_MAX) {
+        dimmer.limit = DIMMER_MAX;
+    }
     dimmer.actual = DIMMER_HIGH;
     dimmer.target = DIMMER_HIGH;
     LOG_DEBUG("EEPROM restored: limit=%d", dimmer.limit);
@@ -203,8 +208,8 @@ void eeprom_restore()
 
 void eeprom_save()
 {
-    EEPROM.update(10, dimmer.limit);
-    if (EEPROM.read(10) != dimmer.limit) {
+    EEPROM.update(EEPROM_OFFSET, dimmer.limit);
+    if (EEPROM.read(EEPROM_OFFSET) != dimmer.limit) {
         LOG_ERROR("EEPROM write failure");
         return;
     }
@@ -284,7 +289,7 @@ void on_message_set_light_level(const MyMessage & message)
     int light_level = constrain(message.getInt(), DIMMER_LOW, DIMMER_MAX);
     LOG_DEBUG("=> Message: sensor=%d, type=LIGHT_LEVEL, value=%d", message.sensor, light_level);
 
-    byte level = light_to_dimmer(light_level);
+    byte level = light_dimmer_convert(light_level);
     dimmer_level(level);
 }
 
@@ -296,8 +301,9 @@ void dimmer_level(byte level)
 
     eeprom_save();
 
-    int light_level = dimmer_to_light(level);
+    int light_level = light_dimmer_convert(level);
     send(msgLightLevel.set(light_level));
+    send(msgLightStatus.set(1));
 }
 
 void on_message_set_status(const MyMessage & message)
@@ -319,12 +325,7 @@ void on_message_dump_data(const MyMessage & message)
     LOG_DEBUG("Button direction: %s", button_direction ? "up" : "down");
 }
 
-byte light_to_dimmer(byte light_level)
+byte light_dimmer_convert(byte level)
 {
-    return DIMMER_HIGH - light_level;
-}
-
-byte dimmer_to_light(byte level)
-{
-    return DIMMER_HIGH - level;
+    return DIMMER_MAX - level;
 }
