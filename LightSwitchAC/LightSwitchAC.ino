@@ -183,7 +183,7 @@ void on_zero_cross_detect()
 
 void on_timer_dim_check()
 {
-    if (zero_cross) {
+    if (zero_cross && dimmer.actual >= DIMMER_MAX) {
         if (step_counter >= dimmer.actual) {
             digitalWrite(PIN_OUT_AC, HIGH);  // turn on light
             step_counter = 0;  // reset time step counter
