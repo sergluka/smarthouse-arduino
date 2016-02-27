@@ -10,6 +10,8 @@
 #include <LEDFader.h>
 #include <Logging.h>
 
+#define VERSION "0.2"
+
 #define PIN_IN_RED  3
 #define PIN_IN_GREEN  5
 #define PIN_IN_BLUE  6
@@ -81,8 +83,9 @@ void setup()
 
     LOG_INFO("MySensors setup...");
     gw.begin(on_message, MS_NODE_ID);
-    gw.sendSketchInfo("KitchenLEDs", "0.1");
-    gw.present(MS_SENSOR_LEDS_ID, S_RGBW_LIGHT, "LEDs");
+    gw.sendSketchInfo("KitchenLEDs", VERSION);
+    gw.present(MS_SENSOR_LEDS_ID, S_RGB_LIGHT, "Color LEDs");
+    gw.present(MS_SENSOR_LEDS_ID, S_LIGHT, "White LED");
 
     switch_leds_off();
 
@@ -192,7 +195,7 @@ void restore_leds()
     send(msgLedStatus.set(1));
 }
 
-void switch_leds_on(byte R, byte G, byte B, byte W)
+void switch_colorleds_on(byte R, byte G, byte B, byte W)
 {
     fade_leds(R, G, B, W);
     leds_on = true;

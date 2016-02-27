@@ -1,6 +1,8 @@
 #ifndef _LOGGING_
 #define _LOGGING_
 
+#include <Arduino.h>
+
 void log(const __FlashStringHelper *fmt, ... ){
     static char buf[128];
     va_list args;

@@ -4,6 +4,9 @@
 #include <EEPROM.h>
 #include <TimerOne.h>
 #include <Logging.h>
+#include <NewButton.h>
+
+#define VERSION "0.2"
 
 #define PIN_IN_ZERO_CROSS   2
 #define PIN_OUT_AC          3
@@ -49,12 +52,11 @@ MySensor gw(transport);
 MyMessage msgLightStatus(MS_LAMP_ID, V_LIGHT);
 MyMessage msgLightLevel(MS_LAMP_ID, V_LIGHT_LEVEL);
 
-enum class ButtonPressStatus
-{
-    NONE,
-    SHORT,
-    LONG,
-};
+NewButton button{PIN_IN_BUTTON};
+
+void on_btn_long_press();
+void on_btn_short_release();
+void on_btn_long_release();
 
 void setup()
 {
@@ -64,9 +66,13 @@ void setup()
     LOG_DEBUG("EEPROM restore...");
     eeprom_restore();
 
-    LOG_INFO("Pins setup...");
+    LOG_DEBUG("Button setup");
+    button.setup();
+    button.on_long_press(on_btn_long_press);
+    button.on_short_release(on_btn_short_release);
+    button.on_long_release(on_btn_long_release);
 
-    pinMode(PIN_IN_BUTTON, INPUT);
+    LOG_INFO("Pins setup...");
     pinMode(PIN_OUT_AC, OUTPUT);                          // Set the Triac pin as output
 
     LOG_INFO("Interrupts setup...");
@@ -76,7 +82,7 @@ void setup()
 
     LOG_INFO("MySensors setup...");
     gw.begin(on_message, MS_NODE_ID);
-    gw.sendSketchInfo("LightSwitchAC", "0.1");
+    gw.sendSketchInfo("LightSwitchAC", VERSION);
     gw.present(MS_LAMP_ID, S_LIGHT, "Lamp");
 
     LOG_INFO("Setup done");
@@ -87,47 +93,7 @@ void loop()
     gw.process();
 
     dimmer_process();
-    button_process();
-}
-
-void button_process()
-{
-    static bool prev_status = false;
-    static unsigned long pressed_time = 0;
-    static ButtonPressStatus prev_press_status = ButtonPressStatus::NONE;
-    static ButtonPressStatus press_status = ButtonPressStatus::NONE;
-
-    bool status = digitalRead(PIN_IN_BUTTON) == HIGH;
-    // on press
-    if (status && !prev_status) {
-        pressed_time = millis();
-    }
-    // on release
-    else if (!status && prev_status) {
-        pressed_time = 0;
-        if (press_status != ButtonPressStatus::NONE) {
-            on_btn_release(press_status);
-            press_status = ButtonPressStatus::NONE;
-        }
-    }
-
-    if (pressed_time > 0) {
-        unsigned long hold_time = millis() - pressed_time;
-        if (hold_time >= BUTTON_LONG_PRESS_TIME) {
-            press_status = ButtonPressStatus::LONG;
-        }
-        else if (hold_time >= BUTTON_SHORT_PRESS_TIME) {
-            press_status = ButtonPressStatus::SHORT;
-        }
-    }
-
-    if (prev_press_status != press_status && press_status != ButtonPressStatus::NONE) {
-        on_btn_press(press_status);
-        LOG_INFO("Button press: %s", press_status == ButtonPressStatus::SHORT ? "short" : "long");
-    }
-
-    prev_status = status;
-    prev_press_status = press_status;
+    button.process();
 }
 
 bool change_button_direction(byte min, byte max)
@@ -147,31 +113,29 @@ bool change_button_direction(byte min, byte max)
     return ret;
 }
 
-void on_btn_press(ButtonPressStatus status)
+void on_btn_long_press()
 {
-    if (status == ButtonPressStatus::LONG) {
-        button_direction = change_button_direction(DIMMER_LOW, DIMMER_MAX);
-        if (button_direction) {
-            dimmer.target = DIMMER_MAX;
-        }
-        else {
-            dimmer.target = DIMMER_LOW;
-        }
-        dimmer.delay = FADE_DELAY_SLOW_MS;
+    button_direction = change_button_direction(DIMMER_LOW, DIMMER_MAX);
+    if (button_direction) {
+        dimmer.target = DIMMER_MAX;
     }
+    else {
+        dimmer.target = DIMMER_LOW;
+    }
+    dimmer.delay = FADE_DELAY_SLOW_MS;
 }
 
-void on_btn_release(ButtonPressStatus status)
+void on_btn_short_release()
 {
-    if (status == ButtonPressStatus::SHORT) {
-        LOG_DEBUG("Button: short release");
-        button_direction = change_button_direction(dimmer.limit, DIMMER_HIGH);
-        dimmer_switch(button_direction, FADE_DELAY_FAST_MS);
-    }
-    else if (status == ButtonPressStatus::LONG) {
-        LOG_DEBUG("Button: long release. Stopped at %d", dimmer.actual);
-        dimmer_level(dimmer.actual);
-    }
+    LOG_DEBUG("Button: short release");
+    button_direction = change_button_direction(dimmer.limit, DIMMER_HIGH);
+    dimmer_switch(button_direction, FADE_DELAY_FAST_MS);
+}
+
+void on_btn_long_release()
+{
+    LOG_DEBUG("Button: long release. Stopped at %d", dimmer.actual);
+    dimmer_level(dimmer.actual);
 }
 
 void on_zero_cross_detect()
