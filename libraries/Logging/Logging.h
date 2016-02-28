@@ -2,6 +2,7 @@
 #define _LOGGING_
 
 #include <Arduino.h>
+#include <utility/RF24_config.h>
 
 #include <string.h>
 

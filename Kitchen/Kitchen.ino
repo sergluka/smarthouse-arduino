@@ -75,7 +75,7 @@ void on_btn_short_release()
 {
     LOG_DEBUG("Button press");
 
-    if (is_light_on()) {
+    if (is_leds_on()) {
         switch_leds_off();
     }
     else {
@@ -134,20 +134,20 @@ void on_message_var1(const MyMessage & message)
 void on_message_light_off(uint8_t sensor)
 {
     if (sensor == MS_SENSOR_COLOR_LEDS_ID) {
-        fade_color_leds(0, 0, 0);
+        leds_color_fade(0, 0, 0);
     }
     else if (sensor == MS_SENSOR_WHITE_LED_ID) {
-        fade_white_led(0);
+        leds_white_fade(0);
     }
 }
 
 void on_message_light_on(uint8_t sensor)
 {
     if (sensor == MS_SENSOR_COLOR_LEDS_ID) {
-        fade_color_leds(storage.color.R, storage.color.G, storage.color.B);
+        leds_color_fade(storage.color.R, storage.color.G, storage.color.B);
     }
     else if (sensor == MS_SENSOR_WHITE_LED_ID) {
-        fade_white_led(storage.color.W);
+        leds_white_fade(storage.color.W);
     }
 
 }
@@ -158,11 +158,11 @@ void on_message_set_limit(uint8_t sensor, RGBW rgbw)
         storage.color.R = rgbw.R;
         storage.color.G = rgbw.G;
         storage.color.B = rgbw.B;
-        fade_color_leds(storage.color.R, storage.color.G, storage.color.B);
+        leds_color_fade(storage.color.R, storage.color.G, storage.color.B);
     }
     else if (sensor == MS_SENSOR_WHITE_LED_ID) {
         storage.color.W = rgbw.W;
-        fade_white_led(storage.color.W);
+        leds_white_fade(storage.color.W);
     }
 
     save_led_values(storage.color);
@@ -187,14 +187,14 @@ void load_led_values()
 
 void restore_leds()
 {
-    fade_leds(storage.color.R, storage.color.G, storage.color.B, storage.color.W);
+    leds_fade(storage.color.R, storage.color.G, storage.color.B, storage.color.W);
     send(msgColorLedStatus.set(1));
     send(msgWhiteLedStatus.set(1));
 }
 
 void switch_leds_off()
 {
-    fade_leds(0, 0, 0, 0);
+    leds_fade(0, 0, 0, 0);
     send(msgColorLedStatus.set(0));
     send(msgWhiteLedStatus.set(0));
 }
