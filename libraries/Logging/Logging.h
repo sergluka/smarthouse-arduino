@@ -22,7 +22,7 @@ void log(const __FlashStringHelper *fmt, ...)
 
 #define LOGGING_SETUP(_speed) Serial.begin(_speed)
 #define LOG_DEBUG(_msg, ...) log(F("[DEBUG] " _msg " [%s:%d]") , ##__VA_ARGS__, __FILENAME__, __LINE__);
-#define LOG_INFO(_msg, ...)  log(F("[INFO] "  _msg " [%s:%d]") , ##__VA_ARGS__, __FILENAME__, __LINE__);
+#define LOG_INFO(_msg, ...)  log(F("[INFO]  " _msg " [%s:%d]") , ##__VA_ARGS__, __FILENAME__, __LINE__);
 #define LOG_ERROR(_msg, ...) log(F("[ERROR] " _msg " [%s:%d]") , ##__VA_ARGS__, __FILENAME__, __LINE__);
 
 #endif // _LOGGING_

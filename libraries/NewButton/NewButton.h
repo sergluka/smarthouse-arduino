@@ -7,7 +7,7 @@ public:
     typedef void(* on_event_t)();
 
     NewButton(unsigned int pin,
-              unsigned int short_press_time = 100,
+              unsigned int short_press_time = 50,
               unsigned int long_press_time = 2000);
 
     void on_short_press(on_event_t callback);
