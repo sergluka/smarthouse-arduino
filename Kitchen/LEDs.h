@@ -27,8 +27,8 @@ LEDFader ledB(PIN_IN_BLUE);
 LEDFader ledW(PIN_IN_WHITE);
 
 void led_process_loop();
-void leds_color_fade(const RGBW & start, const RGBW & stop, unsigned int time);
-void leds_white_fade(const RGBW & start, const RGBW & stop, unsigned int time);
+void leds_color_fade(const RGBW & start, const RGBW & stop, unsigned long time);
+void leds_white_fade(const RGBW & start, const RGBW & stop, unsigned long time);
 
 bool is_leds_has_colors(const RGBW & color);
 bool is_leds_has_white(const RGBW & color);
@@ -70,7 +70,7 @@ void led_process_loop()
     }
 }
 
-void leds_color_fade(const RGBW & start, const RGBW & stop, unsigned int time)
+void leds_color_fade(const RGBW & start, const RGBW & stop, unsigned long time)
 {
     LOG_INFO("LEDs are fading R=0x%x, G=0x%x, B=0x%x => R=0x%x, G=0x%x, B=0x%x, time=%ums",
              start.R, start.G, start.B, stop.R, stop.G, stop.B, time);
@@ -82,14 +82,14 @@ void leds_color_fade(const RGBW & start, const RGBW & stop, unsigned int time)
     ledB.fade(stop.B, time);
 }
 
-void leds_white_fade(const RGBW & start, const RGBW & stop, unsigned int time)
+void leds_white_fade(const RGBW & start, const RGBW & stop, unsigned long time)
 {
     LOG_INFO("LEDs are fading W=0x%x => W=0x%x, time=%ums", start.W, stop.W, time);
     ledW.set_value(start.W);
     ledW.fade(stop.W, time);
 }
 
-void leds_color_fade(byte R, byte G, byte B, unsigned int time = FADE_TIME_MS)
+void leds_color_fade(byte R, byte G, byte B, unsigned long time = FADE_TIME_MS)
 {
     ledR.fade(R, time);
     ledG.fade(G, time);
@@ -97,13 +97,13 @@ void leds_color_fade(byte R, byte G, byte B, unsigned int time = FADE_TIME_MS)
     LOG_INFO("LEDs are fading to R=0x%x, G=0x%x, B=0x%x, time=%ums", R, G, B, time);
 }
 
-void leds_white_fade(byte W, unsigned int time = FADE_TIME_MS)
+void leds_white_fade(byte W, unsigned long time = FADE_TIME_MS)
 {
     ledW.fade(W, time);
     LOG_INFO("LED are fading to W=0x%x, time=%ums", W, time);
 }
 
-void leds_fade(byte R, byte G, byte B, byte W, unsigned int time = FADE_TIME_MS)
+void leds_fade(byte R, byte G, byte B, byte W, unsigned long time = FADE_TIME_MS)
 {
     leds_color_fade(R, G, B, time);
     leds_white_fade(W, time);

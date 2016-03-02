@@ -115,7 +115,7 @@ bool string_to_ulong(const char * str, unsigned long & result)
     return true;
 }
 
-Record parse_input_record(const char * input)
+Record parse_command_string(const char * input)
 {
     Record result = {Command::NONE , 0, {}};
 
@@ -245,7 +245,7 @@ CommandData parse_command(const char * payload, LedType led_type)
 {
     LOG_DEBUG("Input: %s", payload);
 
-    Record record = parse_input_record(payload);
+    Record record = parse_command_string(payload);
     LOG_DEBUG("Parsed: command=%c, count=%d, fields=%s,%s,%s,%s", record.command, record.count,
               record.fields[0], record.fields[1], record.fields[2], record.fields[3]);
 
