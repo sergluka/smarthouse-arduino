@@ -1,5 +1,5 @@
-#ifndef ARDUINO_TYPES_H_H
-#define ARDUINO_TYPES_H_H
+#ifndef ARDUINO_TYPES_H
+#define ARDUINO_TYPES_H
 
 #include <stdint.h>
 
@@ -25,4 +25,4 @@ enum LedType {
     MAX_SIZE
 };
 
-#endif //ARDUINO_TYPES_H_H
+#endif //ARDUINO_TYPES_H

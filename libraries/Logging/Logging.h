@@ -2,21 +2,8 @@
 #define _LOGGING_
 
 #include <Arduino.h>
-#include <utility/RF24_config.h>
 
-#include <string.h>
-
-void log(const __FlashStringHelper *fmt, ...)
-{
-    static char buf[128];
-
-    va_list args;
-    va_start (args, fmt);
-    vsnprintf_P(buf, sizeof(buf), (const char *)fmt, args); // progmem for AVR
-    va_end(args);
-    Serial.println(buf);
-    Serial.flush();
-}
+void log(const __FlashStringHelper *fmt, ...);
 
 #define __FILENAME__ (strrchr(__FILE__, '\\') ? strrchr(__FILE__, '\\') + 1 : __FILE__)
 
