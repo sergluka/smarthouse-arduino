@@ -5,11 +5,9 @@
 
 enum Command : char {
     NONE                    = '\0',
-    LIGHT_OFF               = '0',
-    LIGHT_ON                = '1',
-    LIGHT_SET_LIMIT         = '2',
-    TRANSITION_ONE_SHOT     = '3',
-    TRANSITION_LOOP         = '4'
+    LIGHT_SET_LIMIT         = '0',
+    TRANSITION_ONE_SHOT     = '1',
+    TRANSITION_LOOP         = '2'
 };
 
 struct RGBW {

@@ -94,26 +94,6 @@ Record parse_command_string(const char * input)
     return result;
 }
 
-bool parse_cmd_off(const Record & record)
-{
-    if (record.count != 0) {
-        LOG_ERROR("Wrong data");
-        return false;
-    }
-
-    return true;
-}
-
-bool parse_cmd_on(const Record & record)
-{
-    if (record.count != 0) {
-        LOG_ERROR("Wrong data");
-        return false;
-    }
-
-    return true;
-}
-
 bool string_to_rgb(const char * str, RGBW & result)
 {
     result = {0, 0, 0, 0};
@@ -225,12 +205,6 @@ CommandData parse_command(const char * payload, LedType led_type)
 
     bool res = false;
     switch (record.command) {
-    case Command::LIGHT_OFF:
-        res = parse_cmd_off(record);
-        break;
-    case Command::LIGHT_ON:
-        res = parse_cmd_on(record);
-        break;
     case Command::LIGHT_SET_LIMIT:
         res = parse_cmd_set_limit(record, led_type, result.limit);
         break;

@@ -90,6 +90,19 @@ void on_message_light_on(uint8_t sensor)
     }
 }
 
+void on_message_light(const MyMessage & message)
+{
+    bool status = message.getBool();
+    LOG_DEBUG("=> Message: sensor=%d, type=%d, status=%d", message.sensor, message.type, status);
+
+    if (status) {
+        on_message_light_on(message.sensor);
+    }
+    else {
+        on_message_light_off(message.sensor);
+    }
+}
+
 void on_message_var1(const MyMessage & message)
 {
     const char * payload = message.getString();
@@ -109,12 +122,6 @@ void on_message_var1(const MyMessage & message)
 
     CommandData data = parse_command(payload, led_type);
     switch (data.command) {
-    case Command::LIGHT_OFF:
-        on_message_light_off(message.sensor);
-        break;
-    case Command::LIGHT_ON:
-        on_message_light_on(message.sensor);
-        break;
     case Command::LIGHT_SET_LIMIT:
         on_message_set_limit(message.sensor, data.limit);
         break;
@@ -135,7 +142,10 @@ void on_message(const MyMessage & message)
         return;
     }
 
-    if (message.type == V_VAR1) {
+    if (message.type == V_LIGHT) {
+        on_message_light(message);
+    }
+    else if (message.type == V_VAR1) {
         on_message_var1(message);
     }
     else {
