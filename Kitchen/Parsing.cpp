@@ -3,6 +3,7 @@
 #include <errno.h>
 
 #include <Logging.h>
+#include <LEDFader.h>
 
 #define MAX_FIELD_COUNT 4
 #define MAX_PAYLOAD_SIZE 50
@@ -189,6 +190,10 @@ bool parse_cmd_transition(const Record & record, LedType type, Transition & tran
         LOG_ERROR("Error parsing transition time");
         return false;
     };
+    if (transition.time <= LEDFader::MIN_INTERVAL) {
+        LOG_ERROR("Transition time cannot be <= %d", LEDFader::MIN_INTERVAL);
+        return false;
+    }
 
     return true;
 }

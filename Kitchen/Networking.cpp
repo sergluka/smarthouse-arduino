@@ -7,7 +7,7 @@
 #include "Storage.h"
 #include "LEDs.h"
 
-#define VERSION "0.2"
+#define VERSION "0.3"
 
 #define MS_RF24_CE_PIN      4       //<-- NOTE!!! changed, the default is 9                                                                                                                                     ░
 #define MS_RF24_CS_PIN      10

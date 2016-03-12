@@ -10,12 +10,13 @@
 #ifndef LEDFader_H_
 #define LEDFader_H_
 
-// The minimum time (milliseconds) the program will wait between LED adjustments
-// adjust this to modify performance.
-#define MIN_INTERVAL 20
-
-class LEDFader {
+class LEDFader
+{
 public:
+  // The minimum time (milliseconds) the program will wait between LED adjustments
+  // adjust this to modify performance.
+  static const byte MIN_INTERVAL = 20;
+
   // Who likes dealing with function pointers? (Ok, I do, but no one else does)
   typedef uint8_t (*curve_function)(uint8_t);
 private:
