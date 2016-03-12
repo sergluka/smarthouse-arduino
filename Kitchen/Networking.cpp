@@ -13,15 +13,14 @@
 #define MS_RF24_CS_PIN      10
 #define MS_RF24_PA_LEVEL    RF24_PA_MAX
 
-#define MS_NODE_ID         3
-#define MS_SENSOR_COLOR_LEDS_ID  0
+#define MS_NODE_ID         4
 #define MS_SENSOR_COLOR_LEDS_ID  0
 #define MS_SENSOR_WHITE_LED_ID   1
 
 MyTransportNRF24 transport(MS_RF24_CE_PIN, MS_RF24_CS_PIN, MS_RF24_PA_LEVEL);
 MySensor gw(transport);
-MyMessage msgColorLedStatus(MS_SENSOR_COLOR_LEDS_ID, S_LIGHT);
-MyMessage msgWhiteLedStatus(MS_SENSOR_WHITE_LED_ID, S_LIGHT);
+MyMessage msgColorLedStatus(MS_SENSOR_COLOR_LEDS_ID, V_LIGHT);
+MyMessage msgWhiteLedStatus(MS_SENSOR_WHITE_LED_ID, V_LIGHT);
 
 void on_message(const MyMessage & message);
 

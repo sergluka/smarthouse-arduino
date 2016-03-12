@@ -119,7 +119,7 @@ void switch_leds_off()
 {
     leds_fade(0, 0, 0, 0);
     network_send_color_status(false);
-    network_send_color_status(false);
+    network_send_white_status(false);
 }
 
 bool is_leds_on()
