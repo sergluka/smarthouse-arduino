@@ -101,12 +101,17 @@ void switch_leds_by_button(bool on)
     leds_start_transition(LedType::Color, false);
 
     if (on) {
-        leds_fade(0, 0, 0, 0);
         if (use_color) {
             restore_color_leds();
         }
+        else {
+            switch_color_leds_off();
+        }
         if (use_white) {
             restore_white_leds();
+        }
+        else {
+            switch_white_leds_off();
         }
     }
     else {

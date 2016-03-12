@@ -18,6 +18,9 @@ void leds_white_fade(const RGBW & start, const RGBW & stop, unsigned long time =
 void leds_white_fade(byte W, unsigned long time = FADE_TIME_MS);
 
 void switch_leds_off();
+void switch_color_leds_off();
+void switch_white_leds_off();
+
 bool is_leds_on();
 
 void leds_set_transition(LedType led_type, const Transition & transition_);

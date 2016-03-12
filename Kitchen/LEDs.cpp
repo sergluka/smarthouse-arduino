@@ -24,41 +24,11 @@ LEDFader ledG(PIN_IN_GREEN);
 LEDFader ledB(PIN_IN_BLUE);
 LEDFader ledW(PIN_IN_WHITE);
 
-bool is_leds_has_colors(const RGBW & color)
-{
-    return ledR.get_value() == color.R && ledG.get_value() == color.G && ledB.get_value() == color.B;
-}
+static void led_process_loop();
 
-bool is_leds_has_white(const RGBW & color)
+void leds_setup()
 {
-    return ledW.get_value() == color.W;
-}
-
-void led_process_loop()
-{
-    auto & trans_color = trans_run[LedType::Color];
-    if (trans_color.running && trans_color.transition.is_loop) {
-        if (is_leds_has_colors(trans_color.transition.stop) && !trans_color.direction) {
-            leds_color_fade(trans_color.transition.stop, trans_color.transition.start, trans_color.transition.time);
-            trans_color.direction = true;
-        }
-        else if (is_leds_has_colors(trans_color.transition.start) && trans_color.direction) {
-            leds_color_fade(trans_color.transition.start, trans_color.transition.stop, trans_color.transition.time);
-            trans_color.direction = false;
-        }
-    }
-
-    auto & trans_white = trans_run[LedType::White];
-    if (trans_white.running && trans_white.transition.is_loop) {
-        if (is_leds_has_white(trans_white.transition.stop) && !trans_white.direction) {
-            leds_white_fade(trans_white.transition.stop, trans_white.transition.start, trans_white.transition.time);
-            trans_white.direction = true;
-        }
-        else if (is_leds_has_white(trans_white.transition.start) && trans_white.direction) {
-            leds_white_fade(trans_white.transition.start, trans_white.transition.stop, trans_white.transition.time);
-            trans_white.direction = false;
-        }
-    }
+    switch_leds_off();
 }
 
 void leds_process()
@@ -69,11 +39,6 @@ void leds_process()
     ledW.update();
 
     led_process_loop();
-}
-
-void leds_setup()
-{
-    switch_leds_off();
 }
 
 void leds_color_fade(const RGBW & start, const RGBW & stop, unsigned long time)
@@ -117,8 +82,19 @@ void leds_fade(byte R, byte G, byte B, byte W, unsigned long time)
 
 void switch_leds_off()
 {
-    leds_fade(0, 0, 0, 0);
+    switch_color_leds_off();
+    switch_white_leds_off();
+}
+
+void switch_color_leds_off()
+{
+    leds_color_fade(0, 0, 0);
     network_send_color_status(false);
+}
+
+void switch_white_leds_off()
+{
+    leds_white_fade(0);
     network_send_white_status(false);
 }
 
@@ -148,4 +124,41 @@ void leds_start_transition(LedType led_type, bool start)
 
     }
     trans_run[led_type].running = start;
+}
+
+static bool is_leds_has_colors(const RGBW & color)
+{
+    return ledR.get_value() == color.R && ledG.get_value() == color.G && ledB.get_value() == color.B;
+}
+
+static bool is_leds_has_white(const RGBW & color)
+{
+    return ledW.get_value() == color.W;
+}
+
+static void led_process_loop()
+{
+    auto & trans_color = trans_run[LedType::Color];
+    if (trans_color.running && trans_color.transition.is_loop) {
+        if (is_leds_has_colors(trans_color.transition.stop) && !trans_color.direction) {
+            leds_color_fade(trans_color.transition.stop, trans_color.transition.start, trans_color.transition.time);
+            trans_color.direction = true;
+        }
+        else if (is_leds_has_colors(trans_color.transition.start) && trans_color.direction) {
+            leds_color_fade(trans_color.transition.start, trans_color.transition.stop, trans_color.transition.time);
+            trans_color.direction = false;
+        }
+    }
+
+    auto & trans_white = trans_run[LedType::White];
+    if (trans_white.running && trans_white.transition.is_loop) {
+        if (is_leds_has_white(trans_white.transition.stop) && !trans_white.direction) {
+            leds_white_fade(trans_white.transition.stop, trans_white.transition.start, trans_white.transition.time);
+            trans_white.direction = true;
+        }
+        else if (is_leds_has_white(trans_white.transition.start) && trans_white.direction) {
+            leds_white_fade(trans_white.transition.start, trans_white.transition.stop, trans_white.transition.time);
+            trans_white.direction = false;
+        }
+    }
 }
