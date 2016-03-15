@@ -44,17 +44,19 @@ void on_message_set_limit(uint8_t sensor, RGBW rgbw)
 
         save_color_leds(rgbw.R, rgbw.G, rgbw.B);
         leds_color_fade(rgbw.R, rgbw.G, rgbw.B);
+        network_send_color_status(true);
     }
     else if (sensor == MS_SENSOR_WHITE_LED_ID) {
         leds_start_transition(LedType::White, false);
 
         save_white_leds(rgbw.W);
         leds_white_fade(rgbw.W);
+        network_send_white_status(true);
     }
 }
 
 void on_message_set_transition(uint8_t sensor, const Transition & transition)
-{
+{-+
     if (sensor == MS_SENSOR_COLOR_LEDS_ID) {
         leds_set_transition(LedType::Color, transition);
         leds_start_transition(LedType::Color, true);
@@ -82,10 +84,12 @@ void on_message_light_on(uint8_t sensor)
     if (sensor == MS_SENSOR_COLOR_LEDS_ID) {
         leds_start_transition(LedType::Color, false);
         restore_color_leds();
+        network_send_color_status(true);
     }
     else if (sensor == MS_SENSOR_WHITE_LED_ID) {
         leds_start_transition(LedType::White, false);
         restore_white_leds();
+        network_send_white_status(true);
     }
 }
 
