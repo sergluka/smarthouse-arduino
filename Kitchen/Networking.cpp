@@ -56,14 +56,16 @@ void on_message_set_limit(uint8_t sensor, RGBW rgbw)
 }
 
 void on_message_set_transition(uint8_t sensor, const Transition & transition)
-{-+
+{
     if (sensor == MS_SENSOR_COLOR_LEDS_ID) {
         leds_set_transition(LedType::Color, transition);
         leds_start_transition(LedType::Color, true);
+        network_send_color_status(true);
     }
     else if (sensor == MS_SENSOR_WHITE_LED_ID) {
         leds_set_transition(LedType::White, transition);
         leds_start_transition(LedType::White, true);
+        network_send_white_status(true);
     }
 }
 
