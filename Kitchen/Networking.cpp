@@ -7,7 +7,7 @@
 #include "Storage.h"
 #include "LEDs.h"
 
-#define VERSION "0.3"
+#define VERSION "0.4"
 
 #define MS_RF24_CE_PIN      4       //<-- NOTE!!! changed, the default is 9                                                                                                                                     ░
 #define MS_RF24_CS_PIN      10
@@ -37,19 +37,19 @@ void network_process()
     gw.process();
 }
 
-void on_message_set_limit(uint8_t sensor, RGBW rgbw)
+void on_message_set_limit(uint8_t sensor, RGBW rgbw, SwitchingSource source)
 {
     if (sensor == MS_SENSOR_COLOR_LEDS_ID) {
         leds_start_transition(LedType::Color, false);
 
-        save_color_leds(rgbw.R, rgbw.G, rgbw.B);
+        save_color_leds(source, rgbw.R, rgbw.G, rgbw.B);
         leds_color_fade(rgbw.R, rgbw.G, rgbw.B);
         network_send_color_status(true);
     }
     else if (sensor == MS_SENSOR_WHITE_LED_ID) {
         leds_start_transition(LedType::White, false);
 
-        save_white_leds(rgbw.W);
+        save_white_leds(source, rgbw.W);
         leds_white_fade(rgbw.W);
         network_send_white_status(true);
     }
@@ -85,12 +85,12 @@ void on_message_light_on(uint8_t sensor)
 {
     if (sensor == MS_SENSOR_COLOR_LEDS_ID) {
         leds_start_transition(LedType::Color, false);
-        restore_color_leds();
+        restore_color_leds(SwitchingSource::External);
         network_send_color_status(true);
     }
     else if (sensor == MS_SENSOR_WHITE_LED_ID) {
         leds_start_transition(LedType::White, false);
-        restore_white_leds();
+        restore_white_leds(SwitchingSource::External);
         network_send_white_status(true);
     }
 }
@@ -127,8 +127,11 @@ void on_message_var1(const MyMessage & message)
 
     CommandData data = parse_command(payload, led_type);
     switch (data.command) {
-    case Command::LIGHT_SET_LIMIT:
-        on_message_set_limit(message.sensor, data.limit);
+    case Command::LIGHT_SET_EXT_LIMIT:
+        on_message_set_limit(message.sensor, data.limit, SwitchingSource::External);
+        break;
+    case Command::LIGHT_SET_BUTTON_LIMIT:
+        on_message_set_limit(message.sensor, data.limit, SwitchingSource::Button);
         break;
     case Command::TRANSITION_ONE_SHOT:
     case Command::TRANSITION_LOOP:

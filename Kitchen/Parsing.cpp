@@ -210,7 +210,8 @@ CommandData parse_command(const char * payload, LedType led_type)
 
     bool res = false;
     switch (record.command) {
-    case Command::LIGHT_SET_LIMIT:
+    case Command::LIGHT_SET_EXT_LIMIT:
+    case Command::LIGHT_SET_BUTTON_LIMIT:
         res = parse_cmd_set_limit(record, led_type, result.limit);
         break;
     case Command::TRANSITION_ONE_SHOT:

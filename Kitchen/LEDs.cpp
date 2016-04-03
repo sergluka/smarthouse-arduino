@@ -17,7 +17,7 @@ static struct TransitionRunning
     bool running;
     Transition transition;
     bool direction;
-} trans_run[LedType::MAX_SIZE];
+} trans_run[LedType::TYPES_MAX_SIZE];
 
 LEDFader ledR(PIN_IN_RED);
 LEDFader ledG(PIN_IN_GREEN);

@@ -13,6 +13,4 @@ void network_send_white_status(bool on);
 
 void send(MyMessage & message);
 
-//#include "Networking.cpp"
-
 #endif //ARDUINO_NETWORKING_H

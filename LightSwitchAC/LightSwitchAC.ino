@@ -5,17 +5,24 @@
 #include <TimerOne.h>
 #include <Logging.h>
 #include <NewButton.h>
+#include "Relay.h"
 
-#define VERSION "0.2"
+#define VERSION "0.3"
 
-#define PIN_IN_ZERO_CROSS   2
-#define PIN_OUT_AC          3
-#define PIN_IN_BUTTON       5
+#define PIN_IN_ZERO_CROSS          2
+#define PIN_OUT_AC                 3
+#define PIN_OUT_RELAY1             4
+#define PIN_IN_BUTTON              5
+#define PIN_OUT_RELAY2             6
+#define PIN_IN_RELAY1_BUTTON       7
+#define PIN_IN_RELAY2_BUTTON       8
 
 #define SERIAL_SPEED            115200U
 
 #define MS_NODE_ID              20
 #define MS_LAMP_ID              0
+#define MS_RELAY1_ID            1
+#define MS_RELAY2_ID            2
 
 // This is the delay-per-brightness step in microseconds. It allows for 128 steps
 // If using 60 Hz grid frequency set this to 65
@@ -49,10 +56,12 @@ volatile bool zero_cross = false;  // Flag to indicate we have crossed zero
 
 MyTransportNRF24 transport;
 MySensor gw(transport);
-MyMessage msgLightStatus(MS_LAMP_ID, V_LIGHT);
-MyMessage msgLightLevel(MS_LAMP_ID, V_LIGHT_LEVEL);
+MyMessage msgLampLightStatus(MS_LAMP_ID, V_LIGHT);
+MyMessage msgLampLightLevel(MS_LAMP_ID, V_LIGHT_LEVEL);
 
 NewButton button{PIN_IN_BUTTON};
+Relay relays[] = {Relay{PIN_IN_RELAY1_BUTTON, PIN_OUT_RELAY1},
+                  Relay{PIN_IN_RELAY2_BUTTON, PIN_OUT_RELAY2}};
 
 void on_btn_long_press();
 void on_btn_short_release();
@@ -84,6 +93,8 @@ void setup()
     gw.begin(on_message, MS_NODE_ID);
     gw.sendSketchInfo("LightSwitchAC", VERSION);
     gw.present(MS_LAMP_ID, S_LIGHT, "Lamp");
+    gw.present(MS_RELAY1_ID, S_LIGHT, "Relay 1");
+    gw.present(MS_RELAY2_ID, S_LIGHT, "Relay 2");
 
     LOG_INFO("Setup done");
 }
@@ -94,6 +105,9 @@ void loop()
 
     dimmer_process();
     button.process();
+
+    relays[0].process();
+    relays[1].process();
 }
 
 bool change_button_direction(byte min, byte max)
@@ -106,14 +120,15 @@ bool change_button_direction(byte min, byte max)
     else if (dimmer.actual <= min) {
         ret = true;
     }
-
-    ret = !button_direction;
+    else {
+        ret = !button_direction;
+    }
     LOG_DEBUG("Going %s", ret ? "up" : "down");
 
     return ret;
 }
 
-void on_btn_long_press()
+void on_btn_long_press(void *)
 {
     button_direction = change_button_direction(DIMMER_LOW, DIMMER_MAX);
     if (button_direction) {
@@ -125,14 +140,14 @@ void on_btn_long_press()
     dimmer.delay = FADE_DELAY_SLOW_MS;
 }
 
-void on_btn_short_release()
+void on_btn_short_release(void *)
 {
     LOG_DEBUG("Button: short release");
     button_direction = change_button_direction(dimmer.limit, DIMMER_HIGH);
     dimmer_switch(button_direction, FADE_DELAY_FAST_MS);
 }
 
-void on_btn_long_release()
+void on_btn_long_release(void *)
 {
     LOG_DEBUG("Button: long release. Stopped at %d", dimmer.actual);
     dimmer_level(dimmer.actual);
@@ -140,8 +155,8 @@ void on_btn_long_release()
 
 void on_zero_cross_detect()
 {
-    zero_cross = true;               // set flag for dim_check function that a zero cross has occured
-    step_counter = 0;                             // stepcounter to 0.... as we start a new cycle
+    zero_cross = true;
+    step_counter = 0;
     digitalWrite(PIN_OUT_AC, LOW);
 }
 
@@ -185,11 +200,11 @@ void dimmer_switch(bool status, unsigned int delay)
 {
     if (status) {
         dimmer.target = DIMMER_HIGH;
-        send(msgLightStatus.set(0));
+        send(msgLampLightStatus.set(0));
     }
     else {
         dimmer.target = dimmer.limit;
-        send(msgLightStatus.set(1));
+        send(msgLampLightStatus.set(1));
     }
     LOG_DEBUG("Switch dimmer to %d", dimmer.target);
     dimmer.delay = delay;
@@ -229,22 +244,27 @@ void send(MyMessage & message)
 
 void on_message(const MyMessage & message)
 {
-    if (message.sensor != MS_LAMP_ID) {
-        LOG_ERROR("Got message from unexpected sensor: (sensor=%d, type=%d)", message.sensor, message.type);
-        return;
+    if (message.sensor == MS_LAMP_ID) {
+        if (message.type == V_LIGHT_LEVEL) {
+            on_message_set_light_level(message);
+        }
+        else if (message.type == V_LIGHT) {
+            on_message_set_lamp_status(message);
+        }
+        else if (message.type == V_VAR1) {
+            on_message_dump_data(message);
+        }
+        else {
+            LOG_ERROR("Got message with unexpected type: (sensor=%d, type=%d)", message.sensor,
+                      message.type);
+        }
     }
-
-    if (message.type == V_LIGHT_LEVEL) {
-        on_message_set_light_level(message);
-    }
-    else if (message.type == V_LIGHT) {
-        on_message_set_status(message);
-    }
-    else if (message.type == V_VAR1) {
-        on_message_dump_data(message);
+    else if (message.sensor == MS_RELAY1_ID || message.sensor == MS_RELAY2_ID) {
+        on_message_set_relay_status(message);
     }
     else {
-        LOG_ERROR("Got message with unexpected type: (sensor=%d, type=%d)", message.sensor, message.type);
+        LOG_ERROR("Got message from unexpected sensor: (sensor=%d, type=%d)", message.sensor, message.type);
+        return;
     }
 }
 
@@ -266,11 +286,11 @@ void dimmer_level(byte level)
     eeprom_save();
 
     int light_level = light_dimmer_convert(level);
-    send(msgLightLevel.set(light_level));
-    send(msgLightStatus.set(1));
+    send(msgLampLightLevel.set(light_level));
+    send(msgLampLightStatus.set(1));
 }
 
-void on_message_set_status(const MyMessage & message)
+void on_message_set_lamp_status(const MyMessage & message)
 {
     bool light_status = message.getBool();
     LOG_DEBUG("=> Message: sensor=%d, type=LIGHT, value=%d", message.sensor, light_status);
@@ -287,6 +307,19 @@ void on_message_dump_data(const MyMessage & message)
     LOG_DEBUG("Max: %d", dimmer.limit);
     LOG_DEBUG("Delay: %ums", dimmer.delay);
     LOG_DEBUG("Button direction: %s", button_direction ? "up" : "down");
+}
+
+void on_message_set_relay_status(const MyMessage & message)
+{
+    bool status = message.getBool();
+    LOG_DEBUG("=> Message: sensor=%d, type=LIGHT, value=%d", message.sensor, status);
+
+    if (message.sensor == MS_RELAY1_ID) {
+        relays[0].set_status(status);
+    }
+    else if (message.sensor == MS_RELAY2_ID) {
+        relays[1].set_status(status);
+    }
 }
 
 byte light_dimmer_convert(byte level)

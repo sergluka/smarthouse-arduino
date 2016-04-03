@@ -4,26 +4,38 @@
 class NewButton
 {
 public:
-    typedef void(* on_event_t)();
+    typedef void(* on_event_t)(void * user_data);
 
     NewButton(unsigned int pin,
-              unsigned int short_press_time = 50,
+              unsigned int short_press_time = 40,
               unsigned int long_press_time = 2000);
 
-    void on_short_press(on_event_t callback);
-    void on_long_press(on_event_t callback);
-    void on_short_release(on_event_t callback);
-    void on_long_release(on_event_t callback);
+    void on_short_press(on_event_t callback, void * user_data = nullptr);
+    void on_long_press(on_event_t callback, void * user_data = nullptr);
+    void on_short_release(on_event_t callback, void * user_data = nullptr);
+    void on_long_release(on_event_t callback, void * user_data = nullptr);
 
     void setup();
     void process();
 
 private:
-    enum class Status
-    {
+    enum class Status {
         NONE,
         SHORT,
         LONG,
+    };
+
+    enum EventType {
+        SHORT_PRESS,
+        LONG_PRESS,
+        SHORT_RELEASE,
+        LONG_RELEASE,
+        SIZE
+    };
+
+    struct Callback {
+        on_event_t cb;
+        void * user_data;
     };
 
     unsigned int m_pin;
@@ -35,10 +47,7 @@ private:
     Status m_prev_press_status;
     Status m_press_status;
 
-    on_event_t m_on_short_press_cb;
-    on_event_t m_on_long_press_cb;
-    on_event_t m_on_short_release_cb;
-    on_event_t m_on_long_release_cb;
+    Callback m_callbacks[EventType::SIZE];
 };
 
 

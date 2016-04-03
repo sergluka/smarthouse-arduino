@@ -3,24 +3,35 @@
 
 #include <stdint.h>
 
-enum Command : char {
+enum Command : char
+{
     NONE                    = '\0',
-    LIGHT_SET_LIMIT         = '0',
-    TRANSITION_ONE_SHOT     = '1',
-    TRANSITION_LOOP         = '2'
+    LIGHT_SET_EXT_LIMIT     = '0',
+    LIGHT_SET_BUTTON_LIMIT  = '1',
+    TRANSITION_ONE_SHOT     = '2',
+    TRANSITION_LOOP         = '3'
 };
 
-struct RGBW {
+struct RGBW
+{
     uint8_t R;
     uint8_t G;
     uint8_t B;
     uint8_t W;
 } __attribute__((packed));
 
-enum LedType {
+enum LedType
+{
     Color,
     White,
-    MAX_SIZE
+    TYPES_MAX_SIZE
+};
+
+enum SwitchingSource
+{
+    External,
+    Button,
+    SOURCES_MAX_SIZE
 };
 
 #endif //ARDUINO_TYPES_H

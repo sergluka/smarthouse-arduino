@@ -51,14 +51,14 @@ void loop()
     leds_process();
 }
 
-void on_btn_short_release()
+void on_btn_short_release(void *)
 {
     LOG_DEBUG("Button short release");
 
     switch_leds_by_button(!is_leds_on());
 }
 
-void on_btn_long_press()
+void on_btn_long_press(void *)
 {
     LOG_DEBUG("Button long press");
 
@@ -102,13 +102,13 @@ void switch_leds_by_button(bool on)
 
     if (on) {
         if (use_color) {
-            restore_color_leds();
+            restore_color_leds(SwitchingSource::Button);
         }
         else {
             switch_color_leds_off();
         }
         if (use_white) {
-            restore_white_leds();
+            restore_white_leds(SwitchingSource::Button);
         }
         else {
             switch_white_leds_off();
