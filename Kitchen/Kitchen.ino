@@ -55,7 +55,8 @@ void on_btn_short_release(void *)
 {
     LOG_DEBUG("Button short release");
 
-    switch_leds_by_button(!is_leds_on());
+    bool status = is_stored_equal(SwitchingSource::Button, led_values());
+    switch_leds_by_button(!status);
 }
 
 void on_btn_long_press(void *)
@@ -81,38 +82,12 @@ void on_btn_long_press(void *)
 
 void switch_leds_by_button(bool on)
 {
-    bool use_color = false;
-    bool use_white = false;
-
-    switch (button_mode) {
-    case ButtonMode::Both:
-        use_color = true;
-        use_white = true;
-        break;
-    case ButtonMode::Color:
-        use_color = true;
-        break;
-    case ButtonMode::White:
-        use_white = true;
-        break;
-    }
-
     leds_start_transition(LedType::White, false);
     leds_start_transition(LedType::Color, false);
 
     if (on) {
-        if (use_color) {
-            restore_color_leds(SwitchingSource::Button);
-        }
-        else {
-            switch_color_leds_off();
-        }
-        if (use_white) {
-            restore_white_leds(SwitchingSource::Button);
-        }
-        else {
-            switch_white_leds_off();
-        }
+        restore_color_leds(SwitchingSource::Button);
+        restore_white_leds(SwitchingSource::Button);
     }
     else {
         switch_leds_off();

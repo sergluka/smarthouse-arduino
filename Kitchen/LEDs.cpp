@@ -104,6 +104,16 @@ bool is_leds_on()
            ledW.get_value() > 0;
 }
 
+RGBW led_values()
+{
+    return RGBW{ledR.get_value(), ledG.get_value(), ledB.get_value(), ledW.get_value()};
+};
+
+bool leds_is_transition(LedType led_type)
+{
+    return trans_run[led_type].running;
+}
+
 void leds_set_transition(LedType led_type, const Transition & transition_)
 {
     trans_run[led_type].transition = transition_;

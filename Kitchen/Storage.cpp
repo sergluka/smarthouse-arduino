@@ -65,3 +65,13 @@ void restore_white_leds(SwitchingSource source)
     leds_white_fade(storage.colors[source].W, FADE_TIME_MS);
     network_send_white_status(true);
 }
+
+bool is_stored_equal(SwitchingSource source, const RGBW & leds)
+{
+    return storage.colors[source].R == leds.R &&
+           storage.colors[source].G == leds.G &&
+           storage.colors[source].B == leds.B &&
+           storage.colors[source].W == leds.W;
+
+}
+

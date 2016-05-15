@@ -23,9 +23,10 @@ void switch_white_leds_off();
 
 bool is_leds_on();
 
+RGBW led_values();
+bool leds_is_transition(LedType led_type);
+
 void leds_set_transition(LedType led_type, const Transition & transition_);
 void leds_start_transition(LedType led_type, bool start);
-
-//#include "LEDs.cpp"
 
 #endif //ARDUINO_LEDS_H
