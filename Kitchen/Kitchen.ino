@@ -63,19 +63,29 @@ void on_btn_long_press(void *)
 {
     LOG_DEBUG("Button long press");
 
+    leds_start_transition(LedType::White, false);
+    leds_start_transition(LedType::Color, false);
+
     switch (button_mode) {
     case ButtonMode::Both:
+        restore_color_leds(SwitchingSource::Button);
+        restore_white_leds(SwitchingSource::Button);
+
         button_mode = ButtonMode::Color;
         break;
     case ButtonMode::Color:
+        switch_white_leds_off();
+        restore_color_leds(SwitchingSource::Button);
+
         button_mode = ButtonMode::White;
         break;
     case ButtonMode::White:
+        switch_color_leds_off();
+        restore_white_leds(SwitchingSource::Button);
+
         button_mode = ButtonMode::Both;
         break;
     }
-
-    switch_leds_by_button(true);
 
     LOG_DEBUG("New button mode: %d", static_cast<int>(button_mode));
 }
