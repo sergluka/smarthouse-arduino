@@ -51,7 +51,7 @@ struct {
     unsigned int delay;
 } dimmer = {DIMMER_MAX, DIMMER_MAX, DIMMER_MAX, FADE_DELAY_SLOW_MS};
 
-volatile int step_counter = 0;                // Variable to use as a counter of dimming steps. It is volatile since it is passed between interrupts
+volatile int step_counter = 0;     // Variable to use as a counter of dimming steps. It is volatile since it is passed between interrupts
 volatile bool zero_cross = false;  // Flag to indicate we have crossed zero
 
 MyTransportNRF24 transport;
