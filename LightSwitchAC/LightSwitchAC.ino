@@ -1,11 +1,14 @@
 #include <Arduino.h>
 
-#include <MySensor.h>
 #include <EEPROM.h>
 #include <TimerOne.h>
 #include <Logging.h>
 #include <NewButton.h>
 #include "Relay.h"
+
+#define MY_NODE_ID  20
+#define MY_RADIO_NRF24
+#include <MySensors.h>
 
 #define VERSION "0.3"
 
@@ -19,7 +22,6 @@
 
 #define SERIAL_SPEED            115200U
 
-#define MS_NODE_ID              20
 #define MS_LAMP_ID              0
 #define MS_RELAY1_ID            1
 #define MS_RELAY2_ID            2
@@ -54,8 +56,6 @@ struct {
 volatile int step_counter = 0;     // Variable to use as a counter of dimming steps. It is volatile since it is passed between interrupts
 volatile bool zero_cross = false;  // Flag to indicate we have crossed zero
 
-MyTransportNRF24 transport;
-MySensor gw(transport);
 MyMessage msgLampLightStatus(MS_LAMP_ID, V_LIGHT);
 MyMessage msgLampLightLevel(MS_LAMP_ID, V_LIGHT_LEVEL);
 
@@ -66,6 +66,15 @@ Relay relays[] = {Relay{PIN_IN_RELAY1_BUTTON, PIN_OUT_RELAY1},
 void on_btn_long_press();
 void on_btn_short_release();
 void on_btn_long_release();
+
+void presentation()
+{
+    LOG_INFO("MySensors setup...");
+    sendSketchInfo("LightSwitchAC", VERSION);
+    present(MS_LAMP_ID, S_LIGHT, "Lamp");
+    present(MS_RELAY1_ID, S_LIGHT, "Relay 1");
+    present(MS_RELAY2_ID, S_LIGHT, "Relay 2");
+}
 
 void setup()
 {
@@ -89,20 +98,11 @@ void setup()
     Timer1.initialize(FREQ_STEP);                      // Initialize TimerOne library for the freq we need
     Timer1.attachInterrupt(on_timer_dim_check, FREQ_STEP);      // Go to dim_check procedure every 75 uS (50Hz)  or 65 uS (60Hz)
 
-    LOG_INFO("MySensors setup...");
-    gw.begin(on_message, MS_NODE_ID);
-    gw.sendSketchInfo("LightSwitchAC", VERSION);
-    gw.present(MS_LAMP_ID, S_LIGHT, "Lamp");
-    gw.present(MS_RELAY1_ID, S_LIGHT, "Relay 1");
-    gw.present(MS_RELAY2_ID, S_LIGHT, "Relay 2");
-
     LOG_INFO("Setup done");
 }
 
 void loop()
 {
-    gw.process();
-
     dimmer_process();
     button.process();
 
@@ -200,11 +200,11 @@ void dimmer_switch(bool status, unsigned int delay)
 {
     if (status) {
         dimmer.target = DIMMER_HIGH;
-        send(msgLampLightStatus.set(0));
+        send_message(msgLampLightStatus.set(0));
     }
     else {
         dimmer.target = dimmer.limit;
-        send(msgLampLightStatus.set(1));
+        send_message(msgLampLightStatus.set(1));
     }
     LOG_DEBUG("Switch dimmer to %d", dimmer.target);
     dimmer.delay = delay;
@@ -235,14 +235,14 @@ void dimmer_process()
     }
 }
 
-void send(MyMessage & message)
+void send_message(MyMessage & message)
 {
-    if (!gw.send(message)) {
+    if (!send(message)) {
         LOG_ERROR("Message (sensor=%d, type=%d) doesn't reach a next node", message.sensor, message.type);
     }
 }
 
-void on_message(const MyMessage & message)
+void receive(const MyMessage & message)
 {
     if (message.sensor == MS_LAMP_ID) {
         if (message.type == V_LIGHT_LEVEL) {
@@ -286,8 +286,8 @@ void dimmer_level(byte level)
     eeprom_save();
 
     int light_level = light_dimmer_convert(level);
-    send(msgLampLightLevel.set(light_level));
-    send(msgLampLightStatus.set(1));
+    send_message(msgLampLightLevel.set(light_level));
+    send_message(msgLampLightStatus.set(1));
 }
 
 void on_message_set_lamp_status(const MyMessage & message)

@@ -35,9 +35,6 @@ void setup()
     button.on_short_release(on_btn_short_release);
     button.on_long_press(on_btn_long_press);
 
-    LOG_INFO("MySensors setup...");
-    network_setup();
-
     LOG_INFO("Leds setup");
     leds_setup();
 
@@ -47,7 +44,6 @@ void setup()
 void loop()
 {
     button.process();
-    network_process();
     leds_process();
 }
 

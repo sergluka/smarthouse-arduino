@@ -2,7 +2,6 @@
 #include <MsTimer2.h>
 #include <Logging.h>
 
-#define MY_DEBUG
 #define MY_RADIO_NRF24
 #include <MySensors.h>
 

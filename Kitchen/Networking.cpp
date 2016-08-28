@@ -2,6 +2,13 @@
 
 #include <Logging.h>
 
+#define MY_NODE_ID          4
+#define MY_RF24_CE_PIN      4       //<-- NOTE!!! changed, the default is 9                                                                                                                                     ░
+#define MY_RF24_CS_PIN      10
+#define MY_RF24_PA_LEVEL    RF24_PA_MAX
+#define MY_RADIO_NRF24
+#include <MySensors.h>
+
 #include "Types.h"
 #include "Parsing.h"
 #include "Storage.h"
@@ -9,32 +16,18 @@
 
 #define VERSION "0.4"
 
-#define MS_RF24_CE_PIN      4       //<-- NOTE!!! changed, the default is 9                                                                                                                                     ░
-#define MS_RF24_CS_PIN      10
-#define MS_RF24_PA_LEVEL    RF24_PA_MAX
-
-#define MS_NODE_ID         4
 #define MS_SENSOR_COLOR_LEDS_ID  0
 #define MS_SENSOR_WHITE_LED_ID   1
 
-MyTransportNRF24 transport(MS_RF24_CE_PIN, MS_RF24_CS_PIN, MS_RF24_PA_LEVEL);
-MySensor gw(transport);
 MyMessage msgColorLedStatus(MS_SENSOR_COLOR_LEDS_ID, V_LIGHT);
 MyMessage msgWhiteLedStatus(MS_SENSOR_WHITE_LED_ID, V_LIGHT);
 
-void on_message(const MyMessage & message);
-
-void network_setup()
+void presentation()
 {
-    gw.begin(on_message, MS_NODE_ID);
-    gw.sendSketchInfo("KitchenLEDs", VERSION);
-    gw.present(MS_SENSOR_COLOR_LEDS_ID, S_RGB_LIGHT, "Color LEDs");
-    gw.present(MS_SENSOR_WHITE_LED_ID, S_LIGHT, "White LED");
-}
-
-void network_process()
-{
-    gw.process();
+    LOG_INFO("MySensors setup...");
+    sendSketchInfo("KitchenLEDs", VERSION);
+    present(MS_SENSOR_COLOR_LEDS_ID, S_RGB_LIGHT, "Color LEDs");
+    present(MS_SENSOR_WHITE_LED_ID, S_LIGHT, "White LED");
 }
 
 void on_message_set_limit(uint8_t sensor, RGBW rgbw, SwitchingSource source)
@@ -143,7 +136,7 @@ void on_message_var1(const MyMessage & message)
     }
 }
 
-void on_message(const MyMessage & message)
+void receive(const MyMessage & message)
 {
     if (message.sensor != MS_SENSOR_COLOR_LEDS_ID && message.sensor != MS_SENSOR_WHITE_LED_ID) {
         LOG_ERROR("Got message from unexpected sensor: (sensor=%d, type=%d)", message.sensor, message.type);
@@ -161,19 +154,19 @@ void on_message(const MyMessage & message)
     }
 }
 
-void send(MyMessage & message)
+void send_message(MyMessage & message)
 {
-    if (!gw.send(message)) {
+    if (!send(message)) {
         LOG_ERROR("Message (sensor=%d, type=%d) doesn't reach a next node", message.sensor, message.type);
     }
 }
 
 void network_send_color_status(bool on)
 {
-    send(msgColorLedStatus.set(on ? 1 : 0));
+    send_message(msgColorLedStatus.set(on ? 1 : 0));
 }
 
 void network_send_white_status(bool on)
 {
-    send(msgWhiteLedStatus.set(on ? 1 : 0));
+    send_message(msgWhiteLedStatus.set(on ? 1 : 0));
 }
