@@ -1,0 +1,51 @@
+apply plugin: 'cpp'
+
+model {
+    toolChains {
+        gcc(Gcc) {
+        }
+    }
+    repositories {
+        libs(PrebuiltLibraries) {
+            googleMock {
+                headers.srcDir "dependencies/gmock/include"
+                binaries.withType(StaticLibraryBinary) {
+                    staticLibraryFile = file("dependencies/gmock/lib/libgmock.a")
+                    staticLibraryFile = file("dependencies/gmock/lib/libgmock_main.a")
+                }
+            }
+            googleTest {
+                headers.srcDir "dependencies/gtest/include"
+                binaries.withType(StaticLibraryBinary) {
+                    staticLibraryFile = file("dependencies/gtest/lib/libgtest.a")
+                    staticLibraryFile = file("dependencies/gtest/lib/libgtest_main.a")
+                }
+            }
+        }
+    }
+    components {
+        unittests(NativeExecutableSpec) {
+            sources {
+                cpp {
+                    source {
+                        srcDir "tests"
+                        include "**/*.cpp"
+                    }
+                    source {
+                        srcDir "mocks"
+                        include "**/*.cpp"
+                    }
+                    exportedHeaders {
+                        srcDirs "../sketches", "../libraries", "mocks"
+                    }
+                }
+            }
+            binaries.all {
+                cppCompiler.args '-std=gnu++17', '-ggdb', '-O0'
+                linker.args '-static'
+                lib library: 'googleMock', linkage: 'static'
+                lib library: 'googleTest', linkage: 'static'
+            }
+        }
+    }
+}

@@ -1,3 +1,4 @@
+#include <Arduino.h>
 #include <Bounce2.h>
 #include <MsTimer2.h>
 #include <Logging.h>
@@ -23,22 +24,26 @@
 
 #define TIMER_DELAY_MS  2 * 60 * 1000U
 
-Bounce debouncer = Bounce();
-int oldValue = 0;
-bool state;
+Bounce debouncer;
 MyMessage msgMot(CHILD_ID_MOT, V_TRIPPED);
 MyMessage msgLight(CHILD_ID_LIGHT, V_LIGHT_LEVEL);
 MyMessage msgRelay(CHILD_ID_RELAY, V_LIGHT);
 
-// Sensors actual values
+int relay_state;
+bool button_state = false;
 bool movement_detected = false;
-int light_level;
+int light_level = 0;
 
+void reset();
+void movement_sensor_process();
+void light_level_process();
 void on_send_timer();
-void on_light_level_timer();
+void message_send(MyMessage & message, bool request_ack = false);
 
 void setup()
 {
+    reset();
+
     pinMode(13, OUTPUT);
     digitalWrite(13, LOW);
 
@@ -54,13 +59,21 @@ void setup()
     digitalWrite(RELAY_PIN, RELAY_OFF);
     pinMode(RELAY_PIN, OUTPUT);
 
-    state = loadState(CHILD_ID_RELAY);
-    digitalWrite(RELAY_PIN, state ? RELAY_ON : RELAY_OFF);
+    relay_state = loadState(CHILD_ID_RELAY);
+    digitalWrite(RELAY_PIN, relay_state ? RELAY_ON : RELAY_OFF);
 
     pinMode(DIGITAL_INPUT_SENSOR, INPUT);  // sets the motion sensor digital pin as input
 
     MsTimer2::set(TIMER_DELAY_MS, on_send_timer);
     MsTimer2::start();
+}
+
+void reset()
+{
+    button_state = false;
+    relay_state = false;
+    movement_detected = false;
+    light_level = 0;
 }
 
 void before()
@@ -83,11 +96,12 @@ void loop()
     light_level_process();
 
     debouncer.update();
-    int value = debouncer.read();
-    if (value != oldValue && value == 0) {
-        send(msgRelay.set(state ? false : true), true); // Send new state and request ack back
+    bool new_button_state = debouncer.read();
+    if (new_button_state != button_state && !new_button_state) {
+        LOG_INFO("Button has been released");
+        message_send(msgRelay.set(relay_state ? false : true), true);
     }
-    oldValue = value;
+    button_state = new_button_state;
 }
 
 void receive(const MyMessage & message)
@@ -95,7 +109,7 @@ void receive(const MyMessage & message)
     LOG_INFO("=>: sensor=%d, type=%d, is_ack=%d", message.sensor, message.type, message.isAck());
 
     if (message.isAck()) {
-        LOG_DEBUG("This is an ack from gateway");
+        LOG_DEBUG("Got ACK from gateway");
         return;
     }
 
@@ -105,11 +119,11 @@ void receive(const MyMessage & message)
     }
 
     if (message.type == V_LIGHT) {
-        state = message.getBool();
-        LOG_INFO("Incoming change for the relay: %d", state);
+        relay_state = message.getBool();
+        LOG_INFO("Incoming change for the relay: %d", relay_state);
 
-        digitalWrite(RELAY_PIN, state ? RELAY_ON : RELAY_OFF);
-        saveState(CHILD_ID_RELAY, state);
+        digitalWrite(RELAY_PIN, relay_state ? RELAY_ON : RELAY_OFF);
+        saveState(CHILD_ID_RELAY, relay_state);
     }
 }
 
@@ -118,12 +132,14 @@ void movement_sensor_process()
     bool new_movement_detected = digitalRead(DIGITAL_INPUT_SENSOR) == HIGH;
 
     if (new_movement_detected && !movement_detected) {
+        LOG_INFO("Movement has been started");
         movement_detected = true;
-        send(msgMot.set(movement_detected));
+        message_send(msgMot.set(movement_detected));
     }
     else if (!new_movement_detected && movement_detected) {
+        LOG_INFO("Movement has been stopped");
         movement_detected = false;
-        send(msgMot.set(movement_detected));
+        message_send(msgMot.set(movement_detected));
     }
 }
 
@@ -131,17 +147,26 @@ void light_level_process()
 {
     int new_light_level = (1023 - analogRead(LIGHT_SENSOR_ANALOG_PIN)) / 10.23;
     if (new_light_level != light_level) {
+        LOG_INFO("Light has been changed: %d => %d", light_level, new_light_level);
         light_level = new_light_level;
-        send(msgLight.set(light_level));
+        message_send(msgLight.set(light_level));
     }
 }
 
 void on_send_timer()
 {
-    LOG_INFO("Sending movement status: %d", movement_detected);
-    send(msgMot.set(movement_detected));
+    LOG_INFO("Sending movement status by timer: %d", movement_detected);
+    message_send(msgMot.set(movement_detected));
 
-    LOG_INFO("Sending light level: %d", light_level);
+    LOG_INFO("Sending light level by timer: %d", light_level);
+    message_send(msgLight.set(light_level));
+}
 
-    send(msgLight.set(light_level));
+void message_send(MyMessage & message, bool request_ack)
+{
+    LOG_INFO("<= sensor=%d, type=%d", message.sensor, message.type);
+
+    if (!send(message, request_ack)) {
+        LOG_ERROR("Message (sensor=%d, type=%d) doesn't reach a next node", message.sensor, message.type);
+    }
 }
