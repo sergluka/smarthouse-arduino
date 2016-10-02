@@ -55,17 +55,44 @@ struct {
 
 volatile int step_counter = 0;     // Variable to use as a counter of dimming steps. It is volatile since it is passed between interrupts
 volatile bool zero_cross = false;  // Flag to indicate we have crossed zero
+unsigned long dimmer_last_now = 0;
 
 MyMessage msgLampLightStatus(MS_LAMP_ID, V_LIGHT);
 MyMessage msgLampLightLevel(MS_LAMP_ID, V_LIGHT_LEVEL);
 
 NewButton button{PIN_IN_BUTTON};
-Relay relays[] = {Relay{PIN_IN_RELAY1_BUTTON, PIN_OUT_RELAY1},
-                  Relay{PIN_IN_RELAY2_BUTTON, PIN_OUT_RELAY2}};
 
-void on_btn_long_press();
-void on_btn_short_release();
-void on_btn_long_release();
+NewButton button_relay1{PIN_IN_RELAY1_BUTTON}; //__attribute__ ((init_priority (2000)));
+NewButton button_relay2{PIN_IN_RELAY2_BUTTON}; //__attribute__ ((init_priority (2000)));
+Relay relays[] = {Relay{button_relay1, PIN_OUT_RELAY1},
+                  Relay{button_relay2, PIN_OUT_RELAY2}};// __attribute__((init_priority (1000)));
+
+void on_btn_long_press(void *);
+void on_btn_short_release(void *);
+void on_btn_long_release(void *);
+void eeprom_restore();
+void on_zero_cross_detect();
+void on_timer_dim_check();
+void dimmer_process();
+void dimmer_switch(bool status, unsigned int delay);
+void dimmer_level(byte level);
+void send_message(MyMessage & message);
+void on_message_set_light_level(const MyMessage & message);
+void on_message_set_lamp_status(const MyMessage & message);
+void on_message_dump_data(const MyMessage & message);
+void on_message_set_relay_status(const MyMessage & message);
+byte light_dimmer_convert(byte level);
+
+void reset()
+{
+    step_counter = 0;
+    dimmer_last_now = 0;
+    zero_cross = false;
+    button_direction = true;
+    memset(&dimmer, 0, sizeof(dimmer));
+    relays[0].set_status(false);
+    relays[1].set_status(false);
+}
 
 void presentation()
 {
@@ -78,7 +105,9 @@ void presentation()
 
 void setup()
 {
-    Serial.begin(SERIAL_SPEED);
+    reset();
+
+    LOGGING_SETUP(SERIAL_SPEED);
     LOG_DEBUG("Setup has been started.")
 
     LOG_DEBUG("EEPROM restore...");
@@ -86,9 +115,9 @@ void setup()
 
     LOG_DEBUG("Button setup");
     button.setup();
-    button.on_long_press(on_btn_long_press);
-    button.on_short_release(on_btn_short_release);
-    button.on_long_release(on_btn_long_release);
+    button.on_long_press(on_btn_long_press, nullptr);
+    button.on_short_release(on_btn_short_release, nullptr);
+    button.on_long_release(on_btn_long_release, nullptr);
 
     LOG_INFO("Pins setup...");
     pinMode(PIN_OUT_AC, OUTPUT);                          // Set the Triac pin as output
@@ -213,13 +242,9 @@ void dimmer_switch(bool status, unsigned int delay)
 // Going from actual to target level with delay
 void dimmer_process()
 {
-    static unsigned long last_now = millis();
 
     bool direction = dimmer.target > dimmer.actual;
-    if (direction && (dimmer.actual >= dimmer.target)) {
-        return;
-    }
-    else if (!direction && (dimmer.actual == DIMMER_LOW)) {
+    if (!direction && (dimmer.actual == DIMMER_LOW)) {
         return;
     }
     else if (dimmer.actual == dimmer.target) {
@@ -227,9 +252,9 @@ void dimmer_process()
     }
 
     unsigned long now = millis();
-    if (now - last_now > dimmer.delay) {
+    if (now - dimmer_last_now >= dimmer.delay) {
         dimmer.actual += (direction ? +1 : -1);
-        last_now = now;
+        dimmer_last_now = now;
 
         LOG_DEBUG("dimmer: %u/%u", dimmer.actual, dimmer.target);
     }

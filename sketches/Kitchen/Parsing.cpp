@@ -8,6 +8,12 @@
 #define MAX_FIELD_COUNT 4
 #define MAX_PAYLOAD_SIZE 50
 
+CommandData::CommandData(Command command_, Transition transition_) :
+    command(command_),
+    transition(transition_)
+{
+}
+
 struct Record
 {
     Command command;

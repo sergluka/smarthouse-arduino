@@ -10,9 +10,12 @@ class NewButton : public NiceMock<void>
 {
 public:
     typedef void(* on_event_t)(void * user_data);
-//    using on_event_t = std::function<void<void*>;
 
-    NewButton(unsigned int pin, unsigned int short_press_time = 40, unsigned int long_press_time = 2000);
+    NewButton(unsigned int pin, unsigned int short_press_time = 40, unsigned int long_press_time = 2000)
+    {
+        ON_CALL(*this, process()).WillByDefault(Return());
+        allow(this);
+    }
 
     MOCK_METHOD2(on_short_press, void(on_event_t callback, void * user_data));
     MOCK_METHOD2(on_long_press, void(on_event_t callback, void * user_data));

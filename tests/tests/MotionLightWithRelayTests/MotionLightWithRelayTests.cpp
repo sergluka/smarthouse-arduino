@@ -1,8 +1,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <../mocks/Arduino.h>
-#include <../mocks/MySensors.h>
+#include "../../mocks/Arduino.h"
+#include "../../mocks/MySensors.h"
 
 #include "MotionLightWithRelay/MotionLightWithRelay.ino"
 
@@ -39,27 +39,24 @@ TEST_F(MotionLightWithRelayTests, loop_on_movement_change_send_messages)
     loop();
 
     EXPECT_CALL(ArduinoMock::mock(), digitalRead(3)).WillOnce(Return(HIGH));
-    EXPECT_CALL(MySensorsMock::mock(), send(msgMot, false)).WillOnce(Return(true));
+    EXPECT_CALL(MySensorsMock::mock(), send(msgMot.set(true), false)).WillOnce(Return(true));
     loop();
-    EXPECT_TRUE(msgMot.getBool());
 
     EXPECT_CALL(ArduinoMock::mock(), digitalRead(3)).WillOnce(Return(HIGH));
     EXPECT_CALL(MySensorsMock::mock(), send(_, _)).Times(0);
     loop();
 
     EXPECT_CALL(ArduinoMock::mock(), digitalRead(3)).WillOnce(Return(LOW));
-    EXPECT_CALL(MySensorsMock::mock(), send(msgMot, false)).WillOnce(Return(true));
+    EXPECT_CALL(MySensorsMock::mock(), send(msgMot.set(false), false)).WillOnce(Return(true));
     loop();
-    EXPECT_FALSE(msgMot.getBool());
 
     EXPECT_CALL(ArduinoMock::mock(), digitalRead(3)).WillOnce(Return(LOW));
     EXPECT_CALL(MySensorsMock::mock(), send(_, _)).Times(0);
     loop();
 
     EXPECT_CALL(ArduinoMock::mock(), digitalRead(3)).WillOnce(Return(HIGH));
-    EXPECT_CALL(MySensorsMock::mock(), send(msgMot, false)).WillOnce(Return(true));
+    EXPECT_CALL(MySensorsMock::mock(), send(msgMot.set(true), false)).WillOnce(Return(true));
     loop();
-    EXPECT_TRUE(msgMot.getBool());
 }
 
 TEST_F(MotionLightWithRelayTests, loop_on_light_change_send_messages)
@@ -69,23 +66,20 @@ TEST_F(MotionLightWithRelayTests, loop_on_light_change_send_messages)
     loop();
 
     EXPECT_CALL(ArduinoMock::mock(), analogRead(0)).WillOnce(Return(1010));
-    EXPECT_CALL(MySensorsMock::mock(), send(msgLight, false)).WillOnce(Return(true));
+    EXPECT_CALL(MySensorsMock::mock(), send(msgLight.set(1), false)).WillOnce(Return(true));
     loop();
-    EXPECT_TRUE(msgLight.getBool());
 
     EXPECT_CALL(ArduinoMock::mock(), analogRead(0)).WillOnce(Return(1009));
-    EXPECT_CALL(MySensorsMock::mock(), send(msgLight, false)).WillOnce(Return(true));
+    EXPECT_CALL(MySensorsMock::mock(), send(_, _)).Times(0);
     loop();
-    EXPECT_TRUE(msgLight.getBool());
 
     EXPECT_CALL(ArduinoMock::mock(), analogRead(0)).WillOnce(Return(1021));
-    EXPECT_CALL(MySensorsMock::mock(), send(msgMot, false)).Times(0);
+    EXPECT_CALL(MySensorsMock::mock(), send(msgLight.set(0), false)).WillOnce(Return(true));
     loop();
 
     EXPECT_CALL(ArduinoMock::mock(), analogRead(0)).WillOnce(Return(1010));
-    EXPECT_CALL(MySensorsMock::mock(), send(msgLight, false)).WillOnce(Return(true));
+    EXPECT_CALL(MySensorsMock::mock(), send(msgLight.set(1), false)).WillOnce(Return(true));
     loop();
-    EXPECT_TRUE(msgLight.getBool());
 }
 
 TEST_F(MotionLightWithRelayTests, loop_on_button_press_send_messages)
@@ -107,9 +101,8 @@ TEST_F(MotionLightWithRelayTests, loop_on_button_press_send_messages)
 
     EXPECT_CALL(debouncer, update()).WillOnce(Return());
     EXPECT_CALL(debouncer, read()).WillOnce(Return(false));
-    EXPECT_CALL(MySensorsMock::mock(), send(msgRelay, true)).WillOnce(Return(true));
+    EXPECT_CALL(MySensorsMock::mock(), send(msgRelay.set(true), true)).WillOnce(Return(true));
     loop();
-    EXPECT_TRUE(msgRelay.getBool());
 
     EXPECT_CALL(debouncer, update()).WillOnce(Return());
     EXPECT_CALL(debouncer, read()).WillOnce(Return(false));

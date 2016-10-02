@@ -24,16 +24,15 @@ model {
         }
     }
     components {
-        unittests(NativeExecutableSpec) {
+        MotionLightWithRelayTests(NativeExecutableSpec) {
             sources {
                 cpp {
                     source {
-                        srcDir "tests"
-                        include "**/*.cpp"
+                        srcDir "tests/MotionLightWithRelayTests"
                     }
                     source {
                         srcDir "mocks"
-                        include "**/*.cpp"
+                        include "*.cpp"
                     }
                     exportedHeaders {
                         srcDirs "../sketches", "../libraries", "mocks"
@@ -41,7 +40,51 @@ model {
                 }
             }
             binaries.all {
-                cppCompiler.args '-std=gnu++17', '-ggdb', '-O0'
+                cppCompiler.args '-std=gnu++17', '-ggdb', '-O0', '-Werror', '-Wall'
+                linker.args '-static'
+                lib library: 'googleMock', linkage: 'static'
+                lib library: 'googleTest', linkage: 'static'
+            }
+        }
+        LightSwitchACTests(NativeExecutableSpec) {
+            sources {
+                cpp {
+                    source {
+                        srcDirs "tests/LightSwitchACTests", "../sketches/LightSwitchAC"
+                    }
+                    source {
+                        srcDir "mocks"
+                        include "*.cpp"
+                    }
+                    exportedHeaders {
+                        srcDirs "../sketches", "../libraries", "mocks"
+                    }
+                }
+            }
+            binaries.all {
+                cppCompiler.args '-std=gnu++17', '-ggdb', '-O0', '-Werror', '-Wall'
+                linker.args '-static'
+                lib library: 'googleMock', linkage: 'static'
+                lib library: 'googleTest', linkage: 'static'
+            }
+        }
+        KitchenTests(NativeExecutableSpec) {
+            sources {
+                cpp {
+                    source {
+                        srcDirs "tests/Kitchen", "../sketches/Kitchen"
+                    }
+                    source {
+                        srcDir "mocks"
+                        include "*.cpp"
+                    }
+                    exportedHeaders {
+                        srcDirs "../sketches", "../libraries", "mocks"
+                    }
+                }
+            }
+            binaries.all {
+                cppCompiler.args '-std=gnu++17', '-ggdb', '-O0', '-Werror', '-Wall', '-DUNITTESTS'
                 linker.args '-static'
                 lib library: 'googleMock', linkage: 'static'
                 lib library: 'googleTest', linkage: 'static'

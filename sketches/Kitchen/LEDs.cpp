@@ -26,8 +26,14 @@ LEDFader ledW(PIN_IN_WHITE);
 
 static void led_process_loop();
 
+void leds_reset()
+{
+    memset(trans_run, 0, sizeof(trans_run));
+}
+
 void leds_setup()
 {
+    leds_reset();
     switch_leds_off();
 }
 
@@ -74,12 +80,6 @@ void leds_white_fade(byte W, unsigned long time)
     LOG_INFO("LED are fading to W=0x%x, time=%lums", W, time);
 }
 
-void leds_fade(byte R, byte G, byte B, byte W, unsigned long time)
-{
-    leds_color_fade(R, G, B, time);
-    leds_white_fade(W, time);
-}
-
 void switch_leds_off()
 {
     switch_color_leds_off();
@@ -96,12 +96,6 @@ void switch_white_leds_off()
 {
     leds_white_fade(0);
     network_send_white_status(false);
-}
-
-bool is_leds_on()
-{
-    return ledR.get_value() > 0 || ledG.get_value() > 0 || ledB.get_value() > 0 ||
-           ledW.get_value() > 0;
 }
 
 RGBW led_values()
@@ -150,25 +144,25 @@ static void led_process_loop()
 {
     auto & trans_color = trans_run[LedType::Color];
     if (trans_color.running && trans_color.transition.is_loop) {
-        if (is_leds_has_colors(trans_color.transition.stop) && !trans_color.direction) {
+        if (trans_color.direction && is_leds_has_colors(trans_color.transition.stop)) {
             leds_color_fade(trans_color.transition.stop, trans_color.transition.start, trans_color.transition.time);
-            trans_color.direction = true;
-        }
-        else if (is_leds_has_colors(trans_color.transition.start) && trans_color.direction) {
-            leds_color_fade(trans_color.transition.start, trans_color.transition.stop, trans_color.transition.time);
             trans_color.direction = false;
+        }
+        else if (!trans_color.direction && is_leds_has_colors(trans_color.transition.start)) {
+            leds_color_fade(trans_color.transition.start, trans_color.transition.stop, trans_color.transition.time);
+            trans_color.direction = true;
         }
     }
 
     auto & trans_white = trans_run[LedType::White];
     if (trans_white.running && trans_white.transition.is_loop) {
-        if (is_leds_has_white(trans_white.transition.stop) && !trans_white.direction) {
+        if (trans_white.direction && is_leds_has_white(trans_white.transition.stop)) {
             leds_white_fade(trans_white.transition.stop, trans_white.transition.start, trans_white.transition.time);
-            trans_white.direction = true;
-        }
-        else if (is_leds_has_white(trans_white.transition.start) && trans_white.direction) {
-            leds_white_fade(trans_white.transition.start, trans_white.transition.stop, trans_white.transition.time);
             trans_white.direction = false;
+        }
+        else if (!trans_white.direction && is_leds_has_white(trans_white.transition.start)) {
+            leds_white_fade(trans_white.transition.start, trans_white.transition.stop, trans_white.transition.time);
+            trans_white.direction = true;
         }
     }
 }

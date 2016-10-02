@@ -67,10 +67,12 @@ void on_message_light_off(uint8_t sensor)
     if (sensor == MS_SENSOR_COLOR_LEDS_ID) {
         leds_start_transition(LedType::Color, false);
         leds_color_fade(0, 0, 0);
+        network_send_color_status(false);
     }
     else if (sensor == MS_SENSOR_WHITE_LED_ID) {
         leds_start_transition(LedType::White, false);
         leds_white_fade(0);
+        network_send_white_status(false);
     }
 }
 
@@ -79,12 +81,10 @@ void on_message_light_on(uint8_t sensor)
     if (sensor == MS_SENSOR_COLOR_LEDS_ID) {
         leds_start_transition(LedType::Color, false);
         restore_color_leds(SwitchingSource::External);
-        network_send_color_status(true);
     }
     else if (sensor == MS_SENSOR_WHITE_LED_ID) {
         leds_start_transition(LedType::White, false);
         restore_white_leds(SwitchingSource::External);
-        network_send_white_status(true);
     }
 }
 

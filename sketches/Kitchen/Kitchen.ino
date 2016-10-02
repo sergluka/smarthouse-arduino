@@ -22,6 +22,18 @@ enum class ButtonMode {
 NewButton button(PIN_IN_BUTTON);
 ButtonMode button_mode = ButtonMode::Both;
 
+void on_btn_short_release(void *);
+void on_btn_long_press(void *);
+void switch_leds_by_button(bool on);
+
+void reset()
+{
+    leds_reset();
+    storage_reset();
+
+    button_mode = ButtonMode::Both;
+}
+
 void setup()
 {
     LOGGING_SETUP(SERIAL_SPEED);
@@ -32,8 +44,8 @@ void setup()
 
     LOG_INFO("Button setup...");
     button.setup();
-    button.on_short_release(on_btn_short_release);
-    button.on_long_press(on_btn_long_press);
+    button.on_short_release(on_btn_short_release, nullptr);
+    button.on_long_press(on_btn_long_press, nullptr);
 
     LOG_INFO("Leds setup");
     leds_setup();

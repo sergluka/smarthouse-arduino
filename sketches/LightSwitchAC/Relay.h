@@ -7,7 +7,7 @@
 class Relay
 {
 public:
-    Relay(byte input_pin, byte output_pin);
+    Relay(NewButton & button, byte output_pin);
 
     void switch_status();
     void set_status(bool status);
@@ -18,7 +18,8 @@ private:
     static void on_button_short_release(void * data);
 
     bool m_status;
-    NewButton m_button;
+    NewButton & m_button;
+
     byte m_output_pin;
 };
 

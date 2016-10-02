@@ -2,9 +2,9 @@
 
 #include <Logging.h>
 
-Relay::Relay(byte input_pin, byte output_pin) :
+Relay::Relay(NewButton & button, byte output_pin) :
     m_status{false},
-    m_button{input_pin},
+    m_button(button),
     m_output_pin{output_pin}
 {
     pinMode(output_pin, OUTPUT);

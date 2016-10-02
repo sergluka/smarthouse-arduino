@@ -34,4 +34,18 @@ enum SwitchingSource
     SOURCES_MAX_SIZE
 };
 
+struct  Storage
+{
+    uint8_t version;
+    RGBW colors[SwitchingSource::SOURCES_MAX_SIZE];
+}  __attribute__((packed));
+
+struct Transition
+{
+    RGBW start;
+    RGBW stop;
+    unsigned long time;
+    bool is_loop;
+};
+
 #endif //ARDUINO_TYPES_H

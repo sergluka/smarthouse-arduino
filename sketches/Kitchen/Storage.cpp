@@ -1,37 +1,49 @@
 #include "Storage.h"
 
 #include <Logging.h>
-#include <EEPROM.h>
 
 #include "LEDs.h"
 #include "Networking.h"
 
-#define STORAGE_VERSION 2
+// Use templates mock class since it's not possible to mock template functions `get` and `put` of EEPROMClass
+#ifdef UNITTESTS
+EEPROMClass<Storage> eeprom;
+#else
+EEPROMClass eeprom;
+#endif
 
-struct Storage
+void load_storage();
+
+Storage storage = {STORAGE_VERSION, {0, 0, 0, 0}};
+
+void storage_reset()
 {
-    byte version;
-    RGBW colors[SwitchingSource::SOURCES_MAX_SIZE];
-}  __attribute__((packed));
+    storage = {STORAGE_VERSION, {0, 0, 0, 0}};
+}
 
-static Storage storage = {STORAGE_VERSION, {0, 0, 0, 0}};
+void storage_setup()
+{
+    storage_reset();
+    load_storage();
+}
 
 void save_color_leds(SwitchingSource source, byte R, byte G, byte B)
 {
     storage.colors[source].R = R;
     storage.colors[source].G = G;
     storage.colors[source].B = B;
-    EEPROM.put(0, storage);
+    eeprom.put(0, storage);
 }
+
 void save_white_leds(SwitchingSource source, byte W)
 {
     storage.colors[source].W = W;
-    EEPROM.put(0, storage);
+    eeprom.put(0, storage);
 }
 
-void load_led_values()
+void load_storage()
 {
-    EEPROM.get(0, storage);
+    eeprom.get(0, storage);
     if (storage.version != STORAGE_VERSION) {
         LOG_WARN("Old data format or uninitialized flash memory. Reset to default values");
         storage.version = STORAGE_VERSION;
@@ -47,11 +59,6 @@ void load_led_values()
              storage.colors[SwitchingSource::External].G,
              storage.colors[SwitchingSource::External].B,
              storage.colors[SwitchingSource::External].W);
-}
-
-void storage_setup()
-{
-    load_led_values();
 }
 
 void restore_color_leds(SwitchingSource source)

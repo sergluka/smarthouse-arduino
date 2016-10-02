@@ -3,6 +3,7 @@
 MyMessage::MyMessage() :
     sensor{0},
     type{0},
+    m_data{},
     m_is_ack{false}
 {
 }
@@ -10,13 +11,15 @@ MyMessage::MyMessage() :
 MyMessage::MyMessage(uint8_t sensor_, uint8_t type_) :
     sensor{sensor_},
     type{type_},
+    m_data{},
     m_is_ack{false}
 {
 }
 
 bool MyMessage::operator==(const MyMessage & rhs) const
 {
-    return type == rhs.type && sensor == rhs.sensor;
+    return type == rhs.type && sensor == rhs.sensor &&
+        memcmp(m_data.data, rhs.m_data.data, sizeof(m_data.data)) == 0 && m_is_ack == rhs.m_is_ack;
 }
 
 bool MyMessage::operator!=(const MyMessage & rhs) const
@@ -42,7 +45,7 @@ const char * MyMessage::getString() const
 
 void * MyMessage::getCustom() const
 {
-    return (void*)m_data.data;
+    return (void *)m_data.data;
 }
 
 bool MyMessage::getBool() const
@@ -97,6 +100,7 @@ MyMessage & MyMessage::set(void * payload, uint8_t length)
     }
 
     memcpy(m_data.data, payload, length);
+    return *this;
 }
 
 MyMessage & MyMessage::set(const char * value)
@@ -106,53 +110,72 @@ MyMessage & MyMessage::set(const char * value)
     }
 
     strncpy(m_data.data, value, sizeof(m_data));
+    return *this;
 }
 
 MyMessage & MyMessage::set(float value, uint8_t decimals)
 {
     m_data.fValue = value;
     m_data.fPrecision = decimals;
+    return *this;
 }
 
 MyMessage & MyMessage::set(bool value)
 {
     m_data.bValue = value;
+    return *this;
 }
 
 MyMessage & MyMessage::set(uint8_t value)
 {
     m_data.bValue = value;
+    return *this;
 }
 
 MyMessage & MyMessage::set(uint32_t value)
 {
     m_data.ulValue = value;
+    return *this;
 }
 
 MyMessage & MyMessage::set(int32_t value)
 {
     m_data.lValue = value;
+    return *this;
 }
 
 MyMessage & MyMessage::set(uint16_t value)
 {
     m_data.uiValue = value;
+    return *this;
 }
 
 MyMessage & MyMessage::set(int16_t value)
 {
     m_data.iValue = value;
+    return *this;
 }
 
-MyMessage& MyMessage::setType(uint8_t type)
+MyMessage & MyMessage::setType(uint8_t type)
 {
     this->type = type;
     return *this;
 }
-MyMessage& MyMessage::setSensor(uint8_t sensor)
+
+MyMessage & MyMessage::setSensor(uint8_t sensor)
 {
     this->sensor = sensor;
     return *this;
+}
+
+::std::ostream & operator<<(::std::ostream & os, const MyMessage & mock)
+{
+    return os << "MyMessage: [sensor=" << (int)mock.sensor <<
+            ", type=" << (int)mock.type <<
+            ", is_ack=" << mock.isAck() <<
+            ", bool=" << mock.getBool() <<
+            ", int=" << mock.getInt() <<
+            ", str=" << mock.getString() << "]";
 }
 
 uint8_t loadState(uint8_t pos)
@@ -186,5 +209,4 @@ MySensorsMock::MySensorsMock()
     ON_CALL(mock(), saveState(_, _)).WillByDefault(Return());
     ON_CALL(mock(), present(_, _, _, _)).WillByDefault(Return());
     ON_CALL(mock(), sendSketchInfo(_, _, _)).WillByDefault(Return());
-    ON_CALL(mock(), send(_, _)).WillByDefault(Return(true));
 }

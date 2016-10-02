@@ -2,33 +2,34 @@
 #define ARDUINO_EEPROM_H
 
 #include "gmock/gmock.h"
-//#include "base/StaticMock.h"
+#include <base/NiceMock.h>
 
-class EEPROMClassMock// : public StaticMock<EEPROMClassMock>
+using namespace testing;
+
+template <typename T>
+class EEPROMClass : public NiceMock<void>
 {
 public:
+    EEPROMClass() :
+        m_default()
+    {
+        ON_CALL(*this, write(_, _)).WillByDefault(Return());
+        ON_CALL(*this, update(_, _)).WillByDefault(Return());
+        ON_CALL(*this, put(_, _)).WillByDefault(ReturnRef(m_default));
+        allow(this);
+    }
+
     MOCK_METHOD1(read, uint8_t(int idx));
     MOCK_METHOD2(write, void(int idx, uint8_t val));
     MOCK_METHOD2(update, void(int idx, uint8_t val));
+
+    MOCK_METHOD2_T(get, T&(int idx, T & t));
+    MOCK_METHOD2_T(put, const T&(int idx, const T & t));
+
+private:
+    T m_default;
 };
 
-static EEPROMClassMock EEPROM;
-
-////Functionality to 'get' and 'put' objects to and from EEPROM.
-//template< typename T > T &get( int idx, T &t ){
-//    EEPtr e = idx;
-//    uint8_t *ptr = (uint8_t*) &t;
-//    for( int count = sizeof(T) ; count ; --count, ++e )  *ptr++ = *e;
-//    return t;
-//}
-//
-//template< typename T > const T &put( int idx, const T &t ){
-//    EEPtr e = idx;
-//    const uint8_t *ptr = (const uint8_t*) &t;
-//    for( int count = sizeof(T) ; count ; --count, ++e )  (*e).update( *ptr++ );
-//    return t;
-//}
-//
-//EEPROM.read
+static EEPROMClass<int> EEPROM;
 
 #endif //ARDUINO_EEPROM_H

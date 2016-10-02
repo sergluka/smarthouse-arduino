@@ -164,8 +164,8 @@ public:
     uint8_t sender;
     uint8_t destination;
 
-    uint8_t type;
     uint8_t sensor;
+    uint8_t type;
 
 private:
     union {
@@ -186,6 +186,8 @@ private:
     } m_data;
     bool m_is_ack;
 };
+
+::std::ostream & operator<<(::std::ostream & os, const MyMessage & mock);
 
 class MySensorsMock : public NiceMock<StaticMock<MySensorsMock>>
 {

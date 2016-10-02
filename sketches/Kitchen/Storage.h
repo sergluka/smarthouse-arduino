@@ -2,9 +2,13 @@
 #define ARDUINO_STORAGE_H
 
 #include <Arduino.h>
+#include <EEPROM.h>
 
 #include "Types.h"
 
+#define STORAGE_VERSION 2
+
+void storage_reset();
 void storage_setup();
 
 void save_color_leds(SwitchingSource source, byte R, byte G, byte B);

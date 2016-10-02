@@ -12,6 +12,9 @@ ArduinoMock::ArduinoMock()
     ON_CALL(mock(), analogWrite(_, _)).WillByDefault(Return());
     ON_CALL(mock(), delay(_)).WillByDefault(Return());
     ON_CALL(mock(), delayMicroseconds(_)).WillByDefault(Return());
+    ON_CALL(mock(), attachInterrupt(_, _, _)).WillByDefault(Return());
+    ON_CALL(mock(), detachInterrupt(_)).WillByDefault(Return());
+    ON_CALL(mock(), digitalPinToInterrupt(_)).WillByDefault(Return(0));
 }
 
 void pinMode(uint8_t pin, uint8_t mode)
@@ -31,7 +34,7 @@ int digitalRead(uint8_t pin)
 
 int analogRead(uint8_t pin)
 {
-    ArduinoMock::mock().analogRead(pin);
+    return ArduinoMock::mock().analogRead(pin);
 }
 
 void analogReference(uint8_t mode)
@@ -62,4 +65,19 @@ void delay(unsigned long delay)
 void delayMicroseconds(unsigned int delay)
 {
     ArduinoMock::mock().delayMicroseconds(delay);
+}
+
+void attachInterrupt(uint8_t itr, void (*callback)(void), int mode)
+{
+    ArduinoMock::mock().attachInterrupt(itr, callback, mode);
+}
+
+void detachInterrupt(uint8_t itr)
+{
+    ArduinoMock::mock().detachInterrupt(itr);
+}
+
+uint8_t digitalPinToInterrupt(uint8_t pin)
+{
+    return ArduinoMock::mock().digitalPinToInterrupt(pin);
 }
