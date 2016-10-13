@@ -62,10 +62,10 @@ MyMessage msgLampLightLevel(MS_LAMP_ID, V_LIGHT_LEVEL);
 
 NewButton button{PIN_IN_BUTTON};
 
-NewButton button_relay1{PIN_IN_RELAY1_BUTTON}; //__attribute__ ((init_priority (2000)));
-NewButton button_relay2{PIN_IN_RELAY2_BUTTON}; //__attribute__ ((init_priority (2000)));
+NewButton button_relay1{PIN_IN_RELAY1_BUTTON};
+NewButton button_relay2{PIN_IN_RELAY2_BUTTON};
 Relay relays[] = {Relay{button_relay1, PIN_OUT_RELAY1},
-                  Relay{button_relay2, PIN_OUT_RELAY2}};// __attribute__((init_priority (1000)));
+                  Relay{button_relay2, PIN_OUT_RELAY2}};
 
 void on_btn_long_press(void *);
 void on_btn_short_release(void *);

@@ -9,7 +9,7 @@ class Relay
 public:
     Relay(NewButton & button, byte output_pin);
 
-    void switch_status();
+    void toggle_status();
     void set_status(bool status);
 
     void process();

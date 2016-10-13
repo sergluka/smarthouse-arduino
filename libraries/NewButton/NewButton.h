@@ -50,5 +50,4 @@ private:
     Callback m_callbacks[EventType::SIZE];
 };
 
-
 #endif //ARDUINO_NEWBUTTON_H

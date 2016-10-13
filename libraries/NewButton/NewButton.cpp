@@ -50,11 +50,17 @@ void NewButton::process()
         // on release
     else if (!status && m_prev_status) {
         m_pressed_time = 0;
-        if (m_press_status == Status::SHORT && m_callbacks[EventType::SHORT_RELEASE].cb) {
-            m_callbacks[EventType::SHORT_RELEASE].cb(m_callbacks[EventType::SHORT_RELEASE].user_data);
+        if (m_press_status == Status::SHORT) {
+            LOG_DEBUG("Button %d short release", m_pin);
+            if (m_callbacks[EventType::SHORT_RELEASE].cb) {
+                m_callbacks[EventType::SHORT_RELEASE].cb(m_callbacks[EventType::SHORT_RELEASE].user_data);
+            }
         }
-        if (m_press_status == Status::LONG && m_callbacks[EventType::LONG_RELEASE].cb) {
-            m_callbacks[EventType::LONG_RELEASE].cb(m_callbacks[EventType::LONG_RELEASE].user_data);
+        if (m_press_status == Status::LONG) {
+            LOG_DEBUG("Button %d long release", m_pin);
+            if (m_callbacks[EventType::LONG_RELEASE].cb) {
+                m_callbacks[EventType::LONG_RELEASE].cb(m_callbacks[EventType::LONG_RELEASE].user_data);
+            }
         }
         m_press_status = Status::NONE;
     }
@@ -70,11 +76,17 @@ void NewButton::process()
     }
 
     if (m_prev_press_status != m_press_status) {
-        if (m_press_status == Status::SHORT && m_callbacks[EventType::SHORT_PRESS].cb) {
-            m_callbacks[EventType::SHORT_PRESS].cb(m_callbacks[EventType::SHORT_PRESS].user_data);
+        LOG_DEBUG("Button %d short press", m_pin);
+        if (m_press_status == Status::SHORT) {
+            if (m_callbacks[EventType::SHORT_PRESS].cb) {
+                m_callbacks[EventType::SHORT_PRESS].cb(m_callbacks[EventType::SHORT_PRESS].user_data);
+            }
         }
-        if (m_press_status == Status::LONG && m_callbacks[EventType::LONG_PRESS].cb) {
-            m_callbacks[EventType::LONG_PRESS].cb(m_callbacks[EventType::LONG_PRESS].user_data);
+        if (m_press_status == Status::LONG) {
+            LOG_DEBUG("Button %d long press", m_pin);
+            if (m_callbacks[EventType::LONG_PRESS].cb) {
+                m_callbacks[EventType::LONG_PRESS].cb(m_callbacks[EventType::LONG_PRESS].user_data);
+            }
         }
     }
 

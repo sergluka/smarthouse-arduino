@@ -14,10 +14,11 @@ Relay::Relay(NewButton & button, byte output_pin) :
 void Relay::set_status(bool on)
 {
     m_status = on;
+    LOG_INFO("Set relay output %d to %s", on ? "ON" : "OFF");
     digitalWrite(m_output_pin, on ? HIGH : LOW);
 }
 
-void Relay::switch_status()
+void Relay::toggle_status()
 {
     m_status = !m_status;
     set_status(m_status);
@@ -36,7 +37,7 @@ void Relay::on_button_short_release(void * data)
         return;
     }
 
-    relay->switch_status();
+    relay->toggle_status();
 }
 
 
